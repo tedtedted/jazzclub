@@ -1,0 +1,14 @@
+{"stat":"ok","result":{"items":[
+ {"songName":"Peace Piece","artistName":"Bill Evans","albumName":"Everybody Digs Bill Evans","trackToken":"tt-1","stationId":"200",
+  "albumArtUrl":"https://cont.example/art/1.jpg","songDetailUrl":"https://www.pandora.com/bill-evans/peace-piece",
+  "trackGain":"-3.21","trackLength":401,"songRating":1,
+  "audioUrlMap":{"lowQuality":{"encoding":"aacplus","bitrate":"32","audioUrl":"https://audio.example/low/1.m4a?token=x"},
+                 "mediumQuality":{"encoding":"aacplus","bitrate":"64","audioUrl":"https://audio.example/med/1.m4a?token=x"},
+                 "highQuality":{"encoding":"mp3","bitrate":"192","audioUrl":"https://audio.example/high/1.mp3?token=x"}}},
+ {"adToken":"ad-token-1"},
+ {"songName":"Moanin'","artistName":"Art Blakey & The Jazz Messengers","albumName":"Moanin'","trackToken":"tt-2","stationId":"300",
+  "albumArtUrl":"","trackGain":1.5,"songRating":0,
+  "audioUrlMap":{"lowQuality":{"encoding":"aacplus","audioUrl":"https://audio.example/low/2.m4a"},
+                 "mediumQuality":{"encoding":"aacplus","audioUrl":"https://audio.example/med/2.m4a"},
+                 "highQuality":{"encoding":"mp3","audioUrl":"https://audio.example/high/2.mp3"}}}
+]}}

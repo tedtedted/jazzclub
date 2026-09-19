@@ -1,0 +1,6 @@
+{"stat":"ok","result":{"checksum":"abc","stations":[
+ {"stationToken":"100","stationId":"100","stationName":"QuickMix","isQuickMix":true,"isShared":false,"quickMixStationIds":["200","300"]},
+ {"stationToken":"200","stationId":"200","stationName":"Bill Evans Radio","isQuickMix":false,"isShared":false,"allowRename":true},
+ {"stationToken":"300","stationId":"300","stationName":"Hard Bop Radio","isQuickMix":false,"isShared":true},
+ {"stationToken":"400","stationId":"400","stationName":"Thumbprint Radio"}
+]}}

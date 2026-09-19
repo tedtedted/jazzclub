@@ -1,0 +1,5 @@
+{"stat":"ok","result":{"items":[
+ {"songName":"So What","artistName":"Miles Davis","albumName":"Kind of Blue","trackToken":"tt-3","stationId":"200",
+  "audioUrlMap":{"lowQuality":{"encoding":"aacplus","audioUrl":"https://audio.example/low/3.m4a"},
+                 "mediumQuality":{"encoding":"aacplus","audioUrl":"https://audio.example/med/3.m4a"}}}
+]}}

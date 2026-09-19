@@ -1,0 +1,54 @@
+### Build output ###
+target/
+*.class
+hs_err_pid*.log
+replay_pid*.log
+
+### Maven ###
+!.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+.flattened-pom.xml
+
+### GraalVM native-image ###
+# agent output and build reports; hand-written metadata lives under src/main/resources
+/native-image-agent/
+*.build_artifacts.txt
+/reports/
+
+### Secrets and local configuration ###
+# jazzclub reads ~/.config/jazzclub/config. A copy must never end up in the repo.
+/config
+/state
+/ctl
+*.ini
+.env
+.env.*
+*.gpg
+*.pem
+*.key
+
+### Logs ###
+*.log
+logs/
+
+### IDEs ###
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+.springBeans
+.sts4-cache/
+/nbproject/
+/nbbuild/
+/nbdist/
+.kotlin/
+
+### OS ###
+.DS_Store
+Thumbs.db
