@@ -33,8 +33,17 @@ public final class ShellCommandRunner implements CommandRunner {
             throw new CredentialsException("Could not start password_command: " + e.getMessage(), e);
         }
         // Drain stdout concurrently: reading first would defeat the timeout, waiting first would
-        // deadlock on a command that fills the pipe.
-        CompletableFuture<String> output = CompletableFuture.supplyAsync(() -> readAll(process));
+        // deadlock on a command that fills the pipe. A thread of its own, never the common pool:
+        // this read blocks for as long as anything holds the pipe open, and on a two-core machine
+        // the common pool has a single thread.
+        CompletableFuture<String> output = new CompletableFuture<>();
+        Thread.ofPlatform().name("password-command-output").daemon(true).start(() -> {
+            try {
+                output.complete(readAll(process));
+            } catch (RuntimeException e) {
+                output.completeExceptionally(e);
+            }
+        });
         try {
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 throw new CredentialsException("password_command did not finish within " + timeout.toSeconds() + "s");
@@ -49,6 +58,9 @@ public final class ShellCommandRunner implements CommandRunner {
         } catch (ExecutionException | TimeoutException e) {
             throw new CredentialsException("Could not read the output of password_command", e);
         } finally {
+            // the shell's children first: killing only /bin/sh would orphan whatever it started,
+            // which then lives on holding our pipe
+            process.descendants().forEach(ProcessHandle::destroyForcibly);
             process.destroyForcibly();
         }
     }
