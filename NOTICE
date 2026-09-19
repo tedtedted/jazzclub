@@ -1,0 +1,36 @@
+jazzclub
+Copyright (c) 2026 Ted Redington
+
+jazzclub is a Java port of pianobar (https://codeberg.org/purplesym/pianobar).
+Its protocol handling, configuration format, key bindings and user-facing
+wording are derived from pianobar, which is distributed under the MIT license:
+
+    Copyright (c) 2008-2014
+        Lars-Dominik Braun <lars@6xq.net>
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+
+The native binaries of jazzclub embed libjsound, the native part of Java Sound,
+taken unmodified from the OpenJDK build of GraalVM Community Edition. It is
+licensed under the GNU General Public License version 2 with the Classpath
+Exception; source code is available from https://github.com/openjdk/jdk and
+https://github.com/graalvm/graalvm-ce-builds.
+
+jazzclub is not affiliated with, endorsed by, or supported by Pandora Media, LLC.
+"Pandora" is a trademark of its respective owner.
