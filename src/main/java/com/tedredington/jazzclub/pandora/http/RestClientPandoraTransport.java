@@ -4,6 +4,7 @@ import java.net.URI;
 
 import com.tedredington.jazzclub.pandora.PandoraTransport;
 import com.tedredington.jazzclub.pandora.error.PandoraTransportException;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -31,8 +32,11 @@ public final class RestClientPandoraTransport implements PandoraTransport {
         } catch (RestClientResponseException e) {
             throw new PandoraTransportException("Pandora answered with HTTP " + e.getStatusCode().value(), e);
         } catch (RestClientException e) {
-            // never include the URI: its query string carries the auth token
-            throw new PandoraTransportException("Could not reach Pandora at " + uri.getHost(), e);
+            // The URI must not leak: its query string carries the auth token, and Spring puts the whole
+            // URI into this exception's message. So keep only the underlying I/O problem as the cause.
+            Throwable root = NestedExceptionUtils.getMostSpecificCause(e);
+            throw new PandoraTransportException("Could not reach Pandora at " + uri.getHost()
+                    + (root != e ? " (" + root.getClass().getSimpleName() + ")" : ""), root != e ? root : null);
         }
     }
 }

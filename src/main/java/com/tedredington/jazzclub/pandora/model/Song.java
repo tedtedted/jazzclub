@@ -31,4 +31,9 @@ public record Song(
         Objects.requireNonNull(length, "length");
         Objects.requireNonNull(rating, "rating");
     }
+
+    public Song withRating(Rating newRating) {
+        return new Song(title, artist, album, trackToken, stationId, audioUrl, encoding, coverArtUrl, detailUrl,
+                gainDb, length, newRating);
+    }
 }

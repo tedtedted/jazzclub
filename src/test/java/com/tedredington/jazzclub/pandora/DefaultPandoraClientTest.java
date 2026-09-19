@@ -275,6 +275,95 @@ class DefaultPandoraClientTest {
     }
 
     @Nested
+    class Feedback {
+
+        private final Song song = new Song("Peace Piece", "Bill Evans", "Everybody Digs", "tt-1", "300",
+                URI.create("https://audio.example/1.m4a"), AudioEncoding.AAC_PLUS, null, null, 0, Duration.ZERO,
+                Rating.NONE);
+
+        @Test
+        void loveGoesToTheStationTheSongCameFrom() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\",\"result\":{}}");
+
+            client.addFeedback(song, true);
+
+            assertThat(transport.request(2).uri().getQuery()).startsWith("method=station.addFeedback&");
+            JsonNode body = decryptedBody(2);
+            assertThat(body.path("stationToken").asString()).isEqualTo("300");
+            assertThat(body.path("trackToken").asString()).isEqualTo("tt-1");
+            assertThat(body.path("isPositive").asBoolean()).isTrue();
+        }
+
+        @Test
+        void banIsNegativeFeedback() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}");
+
+            client.addFeedback(song, false);
+
+            assertThat(decryptedBody(2).path("isPositive").asBoolean()).isFalse();
+        }
+
+        @Test
+        void tiredPutsTheTrackToSleep() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}");
+
+            client.sleepSong(song);
+
+            assertThat(transport.request(2).uri().getQuery()).startsWith("method=user.sleepSong&");
+            assertThat(decryptedBody(2).path("trackToken").asString()).isEqualTo("tt-1");
+        }
+
+        @Test
+        void explanationJoinsTraitsIntoASentence() {
+            loggedIn();
+            transport.respond("""
+                    {"stat":"ok","result":{"explanations":[{"focusTraitName":"modal harmonies"},
+                    {"focusTraitName":"a piano solo"},{"noTrait":true},{"focusTraitName":"a slow tempo"}]}}""");
+
+            assertThat(client.explain(song)).contains(
+                    "We're playing this track because it features modal harmonies, a piano solo and a slow tempo.");
+            assertThat(transport.request(2).uri().getQuery()).startsWith("method=track.explainTrack&");
+        }
+
+        @Test
+        void aClosingTraitThatBringsItsOwnAndIsNotDoubled() {
+            loggedIn();
+            transport.respond("""
+                    {"stat":"ok","result":{"explanations":[{"focusTraitName":"vocal duets"},
+                    {"focusTraitName":"country roots"},{"focusTraitName":"and many other similarities"}]}}""");
+
+            assertThat(client.explain(song)).contains("We're playing this track because it features "
+                    + "vocal duets, country roots, and many other similarities.");
+        }
+
+        @Test
+        void aSingleTraitNeedsNoConjunction() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\",\"result\":{\"explanations\":[{\"focusTraitName\":\"swing\"}]}}");
+
+            assertThat(client.explain(song)).contains("We're playing this track because it features swing.");
+        }
+
+        @Test
+        void noExplanationIsEmptyNotAnError() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\",\"result\":{\"explanations\":[]}}");
+
+            assertThat(client.explain(song)).isEmpty();
+        }
+
+        @Test
+        void withRatingChangesOnlyTheRating() {
+            assertThat(song.withRating(Rating.LOVE)).isEqualTo(new Song("Peace Piece", "Bill Evans",
+                    "Everybody Digs", "tt-1", "300", URI.create("https://audio.example/1.m4a"),
+                    AudioEncoding.AAC_PLUS, null, null, 0, Duration.ZERO, Rating.LOVE));
+        }
+    }
+
+    @Nested
     class Failures {
 
         @Test

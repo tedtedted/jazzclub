@@ -9,6 +9,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 
@@ -65,5 +67,18 @@ class RestClientPandoraTransportTest {
                 .hasMessageContaining("tuner.example")
                 .hasMessageNotContaining("auth_token")
                 .hasRootCauseInstanceOf(SocketTimeoutException.class);
+    }
+
+    @Test
+    void theAuthTokenCannotLeakThroughALoggedStackTrace() {
+        server.expect(requestTo(URI_WITH_ENCODED_TOKEN)).andRespond(withException(new SocketTimeoutException("slow")));
+
+        Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
+                () -> transport.post(URI_WITH_ENCODED_TOKEN, "x"));
+
+        // what "log.debug(msg, exception)" would write at -vv
+        StringWriter stackTrace = new StringWriter();
+        thrown.printStackTrace(new PrintWriter(stackTrace));
+        assertThat(stackTrace.toString()).doesNotContain("auth_token").doesNotContain("a%2Bb").contains("slow");
     }
 }

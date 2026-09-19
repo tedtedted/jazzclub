@@ -6,7 +6,9 @@ import com.tedredington.jazzclub.pandora.DefaultPandoraClient;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.PandoraTransport;
 import com.tedredington.jazzclub.pandora.http.RestClientPandoraTransport;
+import com.tedredington.jazzclub.app.PlayerLoop;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -18,6 +20,15 @@ class JazzclubApplicationTests {
 
     @Autowired
     private PandoraTransport pandoraTransport;
+
+    @Autowired
+    private ObjectProvider<PlayerLoop> playerLoop;
+
+    @Test
+    void thePlayerCanBeAssembledWhichProvesEveryActionIsImplemented() {
+        // lazy beans: building the loop builds the dispatcher, which insists on one action per ActionId
+        assertThat(playerLoop.getObject()).isNotNull();
+    }
 
     @Test
     void contextWiresThePandoraClientOntoTheRestClientTransport() {

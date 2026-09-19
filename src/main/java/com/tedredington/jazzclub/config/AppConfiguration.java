@@ -1,0 +1,127 @@
+package com.tedredington.jazzclub.config;
+
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import com.tedredington.jazzclub.app.ActionDispatcher;
+import com.tedredington.jazzclub.app.KeyAction;
+import com.tedredington.jazzclub.app.KeyBindings;
+import com.tedredington.jazzclub.app.PlaybackState;
+import com.tedredington.jazzclub.app.PlayerLoop;
+import com.tedredington.jazzclub.app.Radio;
+import com.tedredington.jazzclub.app.StationPicker;
+import com.tedredington.jazzclub.cli.VersionProvider;
+import com.tedredington.jazzclub.config.file.XdgDirectories;
+import com.tedredington.jazzclub.credentials.CredentialsProvider;
+import com.tedredington.jazzclub.event.Event;
+import com.tedredington.jazzclub.event.EventQueue;
+import com.tedredington.jazzclub.pandora.PandoraClient;
+import com.tedredington.jazzclub.player.AudioPlayer;
+import com.tedredington.jazzclub.player.StreamingAudioPlayer;
+import com.tedredington.jazzclub.player.ffmpeg.FfmpegDecoder;
+import com.tedredington.jazzclub.player.javasound.JavaSoundAudioSink;
+import com.tedredington.jazzclub.player.javasound.JavaSoundNativeSupport;
+import com.tedredington.jazzclub.terminal.TerminalSession;
+import com.tedredington.jazzclub.ui.AnsiConsole;
+import com.tedredington.jazzclub.ui.Console;
+import com.tedredington.jazzclub.ui.EventQueuePrompter;
+import com.tedredington.jazzclub.ui.Prompter;
+import com.tedredington.jazzclub.ui.Renderer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+
+/** Wires the player. The classes themselves know nothing about Spring, except the key actions. */
+@Configuration(proxyBeanMethods = false)
+class AppConfiguration {
+
+    @Bean
+    EventQueue eventQueue() {
+        return new EventQueue();
+    }
+
+    @Bean
+    Console console() {
+        return new AnsiConsole(System.out);
+    }
+
+    @Bean
+    Prompter prompter(EventQueue events, Console console) {
+        return new EventQueuePrompter(events, console);
+    }
+
+    @Bean
+    Renderer renderer(JazzclubProperties properties) {
+        return new Renderer(properties.format());
+    }
+
+    @Bean
+    KeyBindings keyBindings(JazzclubProperties properties) {
+        return new KeyBindings(properties.keys());
+    }
+
+    @Bean
+    PlaybackState playbackState(JazzclubProperties properties) {
+        return new PlaybackState(properties.history());
+    }
+
+    /** Lazy: nothing touches the sound system until the first song. */
+    @Bean
+    @Lazy
+    AudioPlayer audioPlayer(JazzclubProperties properties, EventQueue events) {
+        JavaSoundNativeSupport.prepare(XdgDirectories.system().cacheDirectory().resolve("lib"));
+        return new StreamingAudioPlayer(
+                FfmpegDecoder.factory(properties.ffmpeg()),
+                JavaSoundAudioSink::new,
+                (id, result) -> events.publish(new Event.TrackFinished(id, result)),
+                properties.volume(),
+                properties.gainMul());
+    }
+
+    @Bean
+    @Lazy
+    Radio radio(PandoraClient client, AudioPlayer player, PlaybackState state, Console console, Renderer renderer,
+                JazzclubProperties properties) {
+        return new Radio(client, player, state, console, renderer, properties.audioQuality(), properties.maxRetry());
+    }
+
+    @Bean
+    StationPicker stationPicker(Console console, Prompter prompter, Renderer renderer) {
+        return new StationPicker(console, prompter, renderer);
+    }
+
+    @Bean
+    @Lazy
+    ActionDispatcher actionDispatcher(KeyBindings bindings, PlaybackState state, Console console,
+                                      List<KeyAction> actions) {
+        return new ActionDispatcher(bindings, state, console, actions);
+    }
+
+    @Bean
+    @Lazy
+    PlayerLoop playerLoop(CredentialsProvider credentials, PandoraClient client, AudioPlayer player,
+                          PlaybackState state, Radio radio, StationPicker stationPicker,
+                          ActionDispatcher dispatcher, KeyBindings bindings, EventQueue events, Console console,
+                          Renderer renderer, JazzclubProperties properties) {
+        return new PlayerLoop(credentials, client, player, state, radio, stationPicker, dispatcher, bindings, events,
+                console, renderer, VersionProvider.version(), properties.autostartStation());
+    }
+
+    @Bean(destroyMethod = "close")
+    @Lazy
+    TerminalSession terminalSession(EventQueue events) {
+        return new TerminalSession(events);
+    }
+
+    /** Drives the once-a-second time display. */
+    @Bean(destroyMethod = "shutdownNow")
+    @Lazy
+    ScheduledExecutorService ticker(EventQueue events) {
+        ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor(
+                runnable -> Thread.ofPlatform().name("ticker").daemon(true).unstarted(runnable));
+        ticker.scheduleAtFixedRate(() -> events.publish(new Event.Tick()), 1, 1, TimeUnit.SECONDS);
+        return ticker;
+    }
+}

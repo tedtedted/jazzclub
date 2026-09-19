@@ -1,0 +1,9 @@
+# a pianobar-style file with made-up credentials
+user = listener@example.com
+password = not${a}placeholder
+audio_quality = low
+timeout = 12
+rpc_host = internal-tuner.pandora.com
+act_songlove = l
+love_icon =  [loved]
+volume = -4

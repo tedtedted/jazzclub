@@ -1,0 +1,61 @@
+package com.tedredington.jazzclub.config;
+
+import java.nio.file.Path;
+import java.util.Map;
+
+import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+
+/**
+ * Player-level settings. Defaults equal pianobar's.
+ *
+ * @param configFile       the config file in effect; set by {@link ConfigFileEnvironmentPostProcessor}
+ * @param interactive      run the player; {@code false} in tests, which only want the wiring
+ * @param audioQuality     {@code audio_quality}: low, medium or high
+ * @param volume           {@code volume}: initial volume correction in dB
+ * @param gainMul          {@code gain_mul}: how much of Pandora's ReplayGain to apply, 0.0 to 1.0
+ * @param history          {@code history}: how many played songs to remember
+ * @param maxRetry         {@code max_retry}: consecutive playback failures before the station is stopped
+ * @param autostartStation {@code autostart_station}: station id to play without asking
+ * @param ffmpeg           name or path of the ffmpeg executable
+ * @param keys             {@code act_*} overrides, keyed by pianobar's config key
+ */
+@ConfigurationProperties("jazzclub")
+public record JazzclubProperties(
+        Path configFile,
+        @DefaultValue("false") boolean interactive,
+        @DefaultValue("high") AudioQuality audioQuality,
+        @DefaultValue("0") int volume,
+        @DefaultValue("1.0") double gainMul,
+        @DefaultValue("5") int history,
+        @DefaultValue("3") int maxRetry,
+        String autostartStation,
+        @DefaultValue("ffmpeg") String ffmpeg,
+        @DefaultValue Format format,
+        @DefaultValue Map<String, String> keys) {
+
+    public JazzclubProperties {
+        if (gainMul < 0) {
+            throw new IllegalArgumentException("gain_mul must not be negative, was " + gainMul);
+        }
+        if (history < 0) {
+            throw new IllegalArgumentException("history must not be negative, was " + history);
+        }
+        if (maxRetry < 1) {
+            throw new IllegalArgumentException("max_retry must be at least 1, was " + maxRetry);
+        }
+    }
+
+    /** pianobar's {@code format_*} strings and icons. */
+    public record Format(
+            @DefaultValue("\"%t\" by \"%a\" on \"%l\"%r%@%s") String nowplayingSong,
+            @DefaultValue("Station \"%n\" (%i)") String nowplayingStation,
+            @DefaultValue("%i) %a - %t%r") String listSong,
+            @DefaultValue("%s%r/%t") String time,
+            @DefaultValue(" <3") String loveIcon,
+            @DefaultValue(" </3") String banIcon,
+            @DefaultValue(" zZ") String tiredIcon,
+            @DefaultValue(" @ ") String atIcon) {
+    }
+}

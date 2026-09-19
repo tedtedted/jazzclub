@@ -20,6 +20,7 @@
     <properties>
         <java.version>25</java.version>
         <jline.version>4.4.5</jline.version>
+        <picocli.version>4.7.7</picocli.version>
         <jacoco.version>0.8.15</jacoco.version>
         <!-- minimum line coverage enforced by `mvn verify` -->
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
@@ -35,6 +36,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-restclient</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+            <version>${picocli.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jline</groupId>
@@ -63,8 +69,54 @@
         <finalName>jazzclub</finalName>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- generates the GraalVM reflection config for the picocli command at compile time -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>info.picocli</groupId>
+                            <artifactId>picocli-codegen</artifactId>
+                            <version>${picocli.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <compilerArgs>
+                        <arg>-Aproject=${project.groupId}/${project.artifactId}-picocli</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <!-- META-INF/build-info.properties, read by "jazzclub -V" -->
+                    <execution>
+                        <id>build-info</id>
+                        <goals><goal>build-info</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <!-- same as above, for "java -jar" -->
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- tests must never read the developer's real ~/.config/jazzclub/config -->
+                        <jazzclub.config-file>${project.build.directory}/no-such-config</jazzclub.config-file>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
@@ -72,9 +124,10 @@
                 <version>${jacoco.version}</version>
                 <configuration>
                     <excludes>
-                        <!-- throwaway feasibility code and the one-line bootstrap class -->
-                        <exclude>com/tedredington/jazzclub/spike/**</exclude>
-                        <exclude>com/tedredington/jazzclub/JazzclubApplication*</exclude>
+                        <!-- thin adapters over hardware and OS: a real sound card, a real tty, a real ffmpeg -->
+                        <exclude>com/tedredington/jazzclub/player/javasound/**</exclude>
+                        <exclude>com/tedredington/jazzclub/player/ffmpeg/FfmpegDecoder*</exclude>
+                        <exclude>com/tedredington/jazzclub/terminal/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
@@ -116,9 +169,53 @@
                     <buildArgs>
                         <!-- optimise for size rather than peak throughput -->
                         <buildArg>-Os</buildArg>
+                        <!-- run shutdown hooks on Ctrl-C / SIGTERM so the terminal is always restored -->
+                        <buildArg>--install-exit-handlers</buildArg>
+                        <!-- JLine loads its JNI library; declare that intent instead of getting a warning -->
+                        <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
                     </buildArgs>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- merges with the "native" profile of spring-boot-starter-parent -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <!--
+                              native-image does not link the JNI half of Java Sound. Embed the building
+                              JDK's libjsound; JavaSoundNativeSupport unpacks and loads it at runtime.
+                              It is OpenJDK code under GPLv2 with the Classpath Exception, see NOTICE.
+                            -->
+                            <execution>
+                                <id>embed-libjsound</id>
+                                <phase>process-resources</phase>
+                                <goals><goal>copy-resources</goal></goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.outputDirectory}/native-libs</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${java.home}/lib</directory>
+                                            <includes>
+                                                <include>libjsound.dylib</include>
+                                                <include>libjsound.so</include>
+                                            </includes>
+                                            <filtering>false</filtering>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

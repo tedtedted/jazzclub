@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import com.tedredington.jazzclub.pandora.error.AudioQualityUnavailableException;
@@ -110,6 +111,25 @@ final class PandoraResponseParser {
                     item.path("songRating").asInt(0) == RATING_LOVED ? Rating.LOVE : Rating.NONE));
         }
         return List.copyOf(songs);
+    }
+
+    /** Joins the traits like pianobar: "a, b and c." */
+    Optional<String> explanation(JsonNode result) {
+        List<String> traits = new ArrayList<>();
+        for (JsonNode explanation : result.path("explanations")) {
+            String trait = explanation.path("focusTraitName").asString(null);
+            if (trait != null && !trait.isBlank()) {
+                traits.add(trait);
+            }
+        }
+        if (traits.isEmpty()) {
+            return Optional.empty();
+        }
+        String last = traits.removeLast();
+        // Pandora's closing trait often reads "and many other similarities ..."; don't say "and and"
+        String conjunction = last.startsWith("and ") ? ", " : " and ";
+        String listed = traits.isEmpty() ? last : String.join(", ", traits) + conjunction + last;
+        return Optional.of("We're playing this track because it features " + listed + ".");
     }
 
     /** Pandora sends the gain as a string ("-3.21"), json-c coerced it; so do we. */

@@ -2,10 +2,12 @@ package com.tedredington.jazzclub.config;
 
 import java.net.URI;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 
 import com.tedredington.jazzclub.pandora.PartnerCredentials;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.convert.DurationUnit;
 
 /**
  * Connection settings for Pandora. Defaults equal pianobar's; the property names follow its
@@ -15,7 +17,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record PandoraProperties(
         @DefaultValue("tuner.pandora.com") String rpcHost,
         @DefaultValue("443") int rpcTlsPort,
-        @DefaultValue("30s") Duration timeout,
+        // a bare number means seconds, as in pianobar's "timeout = 30"
+        @DefaultValue("30") @DurationUnit(ChronoUnit.SECONDS) Duration timeout,
         @DefaultValue Partner partner) {
 
     public PandoraProperties {

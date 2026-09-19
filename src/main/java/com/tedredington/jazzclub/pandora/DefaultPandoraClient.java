@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.InstantSource;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import com.tedredington.jazzclub.pandora.error.InvalidLoginException;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
@@ -68,6 +69,26 @@ public final class DefaultPandoraClient implements PandoraClient {
                 .put("stationToken", station.token())
                 .put("includeTrackLength", true);
         return parser.playlist(call("station.getPlaylist", body), quality);
+    }
+
+    @Override
+    public synchronized void addFeedback(Song song, boolean positive) {
+        ObjectNode body = json.createObjectNode()
+                .put("stationToken", song.stationId())
+                .put("trackToken", song.trackToken())
+                .put("isPositive", positive);
+        call("station.addFeedback", body);
+    }
+
+    @Override
+    public synchronized void sleepSong(Song song) {
+        call("user.sleepSong", json.createObjectNode().put("trackToken", song.trackToken()));
+    }
+
+    @Override
+    public synchronized Optional<String> explain(Song song) {
+        ObjectNode body = json.createObjectNode().put("trackToken", song.trackToken());
+        return parser.explanation(call("track.explainTrack", body));
     }
 
     /** An authenticated call. An expired token triggers one transparent re-login, like pianobar. */

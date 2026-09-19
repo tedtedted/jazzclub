@@ -75,6 +75,12 @@
   "resources": [
     {
       "glob": "META-INF/services/javax.sound.sampled.spi.MixerProvider"
+    },
+    {
+      "glob": "native-libs/*"
+    },
+    {
+      "glob": "META-INF/build-info.properties"
     }
   ]
 }
