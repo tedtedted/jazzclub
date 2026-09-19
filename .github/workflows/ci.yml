@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Also build the macOS binary (billed at 10x on private repositories)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # keep in step with .sdkmanrc
+  JAVA_VERSION: '25.0.2'
+
+jobs:
+  test:
+    name: Tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: graalvm-community
+          cache: maven
+
+      # fails below the JaCoCo line-coverage gate configured in pom.xml
+      - name: Verify
+        run: ./mvnw -B -ntp verify
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  native:
+    name: Native binary (${{ matrix.name }})
+    needs: test
+    # pull requests get the tests only; a native build takes several minutes
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runner: ubuntu-latest
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+          - name: macos-arm64
+            runner: macos-latest
+    steps:
+      # GitHub cannot skip single matrix entries up front, so macOS bows out here unless it is wanted
+      - name: Decide whether to build
+        id: gate
+        shell: bash
+        run: |
+          if [[ "${{ matrix.name }}" != macos-* || "${{ github.ref_type }}" == "tag" || "${{ inputs.macos }}" == "true" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping ${{ matrix.name }}: built for tags and manual runs only."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.build == 'true'
+
+      - uses: graalvm/setup-graalvm@v1
+        if: steps.gate.outputs.build == 'true'
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: graalvm-community
+          cache: maven
+
+      - name: Build
+        if: steps.gate.outputs.build == 'true'
+        run: ./mvnw -B -ntp -Pnative -DskipTests native:compile
+
+      # No sound card and no Pandora account here, so check what can be checked: the binary starts,
+      # parses its command line, reads a config, and fails cleanly without credentials.
+      - name: Smoke test
+        if: steps.gate.outputs.build == 'true'
+        shell: bash
+        run: |
+          set -u
+          ls -lh target/jazzclub
+          ./target/jazzclub --version
+          ./target/jazzclub --help | grep -q -- '--verbose'
+
+          status=0
+          ./target/jazzclub --no-such-option > /dev/null 2>&1 || status=$?
+          test "$status" -eq 2 || { echo "expected exit 2 for a bad option, got $status"; exit 1; }
+
+          status=0
+          output=$(./target/jazzclub --config /nonexistent/config < /dev/null 2>&1) || status=$?
+          echo "$output"
+          test "$status" -eq 1 || { echo "expected exit 1 without credentials, got $status"; exit 1; }
+          grep -q 'No Pandora account configured' <<< "$output"
+
+          size_mb=$(( $(wc -c < target/jazzclub) / 1048576 ))
+          echo "binary size: ${size_mb} MB"
+          test "$size_mb" -lt 100 || { echo "binary exceeds the 100 MB budget"; exit 1; }
+
+      - name: Upload binary
+        if: steps.gate.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jazzclub-${{ matrix.name }}
+          path: target/jazzclub
+          if-no-files-found: error
+          retention-days: 30

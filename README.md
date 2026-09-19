@@ -247,16 +247,20 @@ Deliberately different:
 
 ## Building
 
-You need [GraalVM](https://www.graalvm.org) for JDK 25 and Maven. With [SDKMAN!](https://sdkman.io):
+You need [GraalVM](https://www.graalvm.org) for JDK 25. With [SDKMAN!](https://sdkman.io):
 
 ```sh
 sdk env install        # installs the JDK pinned in .sdkmanrc
-mvn -Pnative native:compile
+./mvnw -Pnative native:compile
 ./target/jazzclub --version
 ```
 
-`mvn verify` runs the tests and fails below 80 % line coverage. `mvn package` builds a regular
-`target/jazzclub.jar` that runs on any Java 25 with `java -jar`.
+`./mvnw` is the Maven Wrapper: it fetches the Maven version this project is built with, so you do
+not need Maven installed. `./mvnw verify` runs the tests and fails below 80 % line coverage.
+`./mvnw package` builds a regular `target/jazzclub.jar` that runs on any Java 25 with `java -jar`.
+
+Every push is tested and compiled to native binaries for Linux by
+[GitHub Actions](.github/workflows/ci.yml); the binaries are attached to the workflow run.
 
 ## Licence
 
