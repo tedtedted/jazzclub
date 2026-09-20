@@ -32,17 +32,44 @@ Welcome to jazzclub (0.1.0)! Press ? for a list of commands.
   | Arch Linux | `sudo pacman -S ffmpeg` |
   | Debian / Ubuntu | `sudo apt install ffmpeg` |
 
+- On **Linux**, the ALSA library, which every desktop system has (`libasound2` on Debian and Ubuntu,
+  `alsa-lib` on Arch). With PipeWire or PulseAudio also their ALSA bridge, see
+  [Troubleshooting](#troubleshooting).
+
 Nothing else. The binary contains everything it needs; no Java installation is required to run it.
 
 ## Install
 
-GitHub releases publish native packages for Debian-family Linux, Arch Linux and macOS. Until the
-first release is cut, build from source (see [Building](#building)) and put the binary somewhere on
-your `PATH`:
+Packages are on the [releases page](https://github.com/tedtedted/jazzclub/releases). Each pulls in
+`ffmpeg`, and on Linux the ALSA library, through your package manager.
+
+**Debian, Ubuntu** (Debian 12 and Ubuntu 22.04 or newer; `amd64` and `arm64`)
 
 ```sh
-install -m 755 target/jazzclub ~/.local/bin/jazzclub
+sudo apt install ./jazzclub_0.1.0_amd64.deb
 ```
+
+**Arch Linux** (`x86_64` and `aarch64`)
+
+```sh
+sudo pacman -U jazzclub-0.1.0-1-x86_64.pkg.tar.zst
+```
+
+**macOS** on Apple Silicon
+
+```sh
+brew install ffmpeg
+tar -xzf jazzclub-0.1.0-macos-arm64.tar.gz
+sudo install -m 755 jazzclub-0.1.0-macos-arm64/bin/jazzclub /usr/local/bin/
+xattr -d com.apple.quarantine /usr/local/bin/jazzclub    # macOS quarantines downloaded binaries
+```
+
+Every release comes with `SHA256SUMS-*` files; check your download with `sha256sum -c` (on macOS
+`shasum -a 256 -c`). The Linux packages install tab completion for bash; the macOS archive has it
+under `share/bash-completion/`.
+
+A Homebrew tap and an AUR package are planned. To build from source instead, see
+[Building](#building).
 
 ## Quick start
 
@@ -466,6 +493,14 @@ git push origin v0.1.0
 Use `MAJOR` for incompatible config, CLI, packaging or behavior changes, `MINOR` for compatible
 features, and `PATCH` for compatible fixes. See [docs/release.md](docs/release.md) for the branch,
 versioning and CI/CD policy.
+
+To try the packaging on your own machine:
+
+```sh
+./mvnw -Pnative -DskipTests -Drevision=0.0.0-test native:compile
+scripts/smoke-test.sh target/jazzclub 0.0.0-test
+scripts/package-macos.sh 0.0.0-test arm64 target/jazzclub dist
+```
 
 ## Licence
 

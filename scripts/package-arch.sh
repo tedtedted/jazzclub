@@ -21,15 +21,23 @@ if [[ ! -x "$binary" ]]; then
   exit 66
 fi
 
+completion="${COMPLETION:-target/jazzclub_completion}"
+if [[ ! -s "$completion" ]]; then
+  echo "shell completion is missing: $completion (the Maven build generates it)" >&2
+  exit 66
+fi
+
 root="$(mktemp -d)"
 trap 'rm -rf "$root"' EXIT
 
 pkg="$root/package"
-install -d "$pkg/usr/bin" "$pkg/usr/share/doc/jazzclub" "$pkg/usr/share/licenses/jazzclub"
+install -d "$pkg/usr/bin" "$pkg/usr/share/doc/jazzclub" "$pkg/usr/share/licenses/jazzclub" \
+  "$pkg/usr/share/bash-completion/completions"
 install -m 0755 "$binary" "$pkg/usr/bin/jazzclub"
 install -m 0644 README.md "$pkg/usr/share/doc/jazzclub/README.md"
 install -m 0644 LICENSE "$pkg/usr/share/licenses/jazzclub/LICENSE"
 install -m 0644 NOTICE "$pkg/usr/share/licenses/jazzclub/NOTICE"
+install -m 0644 "$completion" "$pkg/usr/share/bash-completion/completions/jazzclub"
 
 size="$(du -sk "$pkg" | awk '{print $1 * 1024}')"
 builddate="$(date +%s)"
@@ -46,6 +54,7 @@ size = ${size}
 arch = ${arch}
 license = MIT
 depend = ffmpeg
+depend = alsa-lib
 PKGINFO
 
 install -d "$out_dir"

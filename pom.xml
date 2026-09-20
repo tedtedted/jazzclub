@@ -100,6 +100,36 @@
                 </executions>
             </plugin>
             <plugin>
+                <!-- bash/zsh completion, generated from the picocli model so it cannot drift from the options -->
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>generate-completion</id>
+                        <phase>package</phase>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <mainClass>picocli.AutoComplete</mainClass>
+                            <classpathScope>compile</classpathScope>
+                            <systemProperties>
+                                <!-- without this a failure only prints a usage text and the build stays green -->
+                                <systemProperty>
+                                    <key>picocli.autocomplete.systemExitOnError</key>
+                                    <value>true</value>
+                                </systemProperty>
+                            </systemProperties>
+                            <arguments>
+                                <argument>--force</argument>
+                                <argument>--completionScript</argument>
+                                <!-- straight into target/: picocli does not create missing directories -->
+                                <argument>${project.build.directory}/jazzclub_completion</argument>
+                                <argument>com.tedredington.jazzclub.cli.JazzclubCommand</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>

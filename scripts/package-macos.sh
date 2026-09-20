@@ -21,15 +21,23 @@ if [[ ! -x "$binary" ]]; then
   exit 66
 fi
 
+completion="${COMPLETION:-target/jazzclub_completion}"
+if [[ ! -s "$completion" ]]; then
+  echo "shell completion is missing: $completion (the Maven build generates it)" >&2
+  exit 66
+fi
+
 root="$(mktemp -d)"
 trap 'rm -rf "$root"' EXIT
 
 bundle="$root/jazzclub-${version}-macos-${arch}"
-install -d "$bundle/bin" "$bundle/share/doc/jazzclub" "$bundle/share/licenses/jazzclub"
+install -d "$bundle/bin" "$bundle/share/doc/jazzclub" "$bundle/share/licenses/jazzclub" \
+  "$bundle/share/bash-completion/completions"
 install -m 0755 "$binary" "$bundle/bin/jazzclub"
 install -m 0644 README.md "$bundle/share/doc/jazzclub/README.md"
 install -m 0644 LICENSE "$bundle/share/licenses/jazzclub/LICENSE"
 install -m 0644 NOTICE "$bundle/share/licenses/jazzclub/NOTICE"
+install -m 0644 "$completion" "$bundle/share/bash-completion/completions/jazzclub"
 
 cat > "$bundle/INSTALL.md" <<INSTALL
 # jazzclub ${version}
@@ -44,6 +52,18 @@ Then copy the binary somewhere on your PATH:
 
 \`\`\`sh
 install -m 755 bin/jazzclub /usr/local/bin/jazzclub
+\`\`\`
+
+A downloaded binary is quarantined by macOS. Clear that once:
+
+\`\`\`sh
+xattr -d com.apple.quarantine /usr/local/bin/jazzclub
+\`\`\`
+
+For tab completion in bash or zsh, add this to your shell profile:
+
+\`\`\`sh
+source /path/to/share/bash-completion/completions/jazzclub
 \`\`\`
 INSTALL
 
