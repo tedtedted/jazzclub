@@ -25,6 +25,7 @@ dependency-reduced-pom.xml
 .env.*
 *.gpg
 *.pem
+!src/test/resources/network/*.pem
 *.key
 
 ### Logs ###
