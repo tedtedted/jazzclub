@@ -3,6 +3,7 @@ package com.tedredington.jazzclub.config;
 import java.nio.file.Path;
 import java.util.Map;
 
+import com.tedredington.jazzclub.app.StationSort;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -11,6 +12,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * Player-level settings. Defaults equal pianobar's.
  *
  * @param configFile       the config file in effect; set by {@link ConfigFileEnvironmentPostProcessor}
+ * @param stateFile        where volume and last station are remembered; set the same way
  * @param interactive      run the player; {@code false} in tests, which only want the wiring
  * @param audioQuality     {@code audio_quality}: low, medium or high
  * @param volume           {@code volume}: initial volume correction in dB
@@ -18,6 +20,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param history          {@code history}: how many played songs to remember
  * @param maxRetry         {@code max_retry}: consecutive playback failures before the station is stopped
  * @param autostartStation {@code autostart_station}: station id to play without asking
+ * @param sort             {@code sort}: order of the station list
+ * @param autoselect       {@code autoselect}: take a single remaining match in the station menu without asking
  * @param eventCommand     {@code event_command}: executable run for every player event
  * @param fifo             {@code fifo}: named pipe for remote control; default {@code ctl} next to the config
  * @param ffmpeg           name or path of the ffmpeg executable
@@ -26,6 +30,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("jazzclub")
 public record JazzclubProperties(
         Path configFile,
+        Path stateFile,
         @DefaultValue("false") boolean interactive,
         @DefaultValue("high") AudioQuality audioQuality,
         @DefaultValue("0") int volume,
@@ -33,6 +38,8 @@ public record JazzclubProperties(
         @DefaultValue("5") int history,
         @DefaultValue("3") int maxRetry,
         String autostartStation,
+        @DefaultValue("name_az") StationSort sort,
+        @DefaultValue("true") boolean autoselect,
         String eventCommand,
         Path fifo,
         @DefaultValue("ffmpeg") String ffmpeg,
@@ -60,6 +67,7 @@ public record JazzclubProperties(
             @DefaultValue(" <3") String loveIcon,
             @DefaultValue(" </3") String banIcon,
             @DefaultValue(" zZ") String tiredIcon,
-            @DefaultValue(" @ ") String atIcon) {
+            @DefaultValue(" @ ") String atIcon,
+            @DefaultValue Map<String, String> msg) {
     }
 }

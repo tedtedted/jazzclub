@@ -64,6 +64,17 @@ class PlayerEventsTest {
     }
 
     @Test
+    void stationsFollowTheSameOrderAsTheMenuSoScriptsCanUseTheNumbers() {
+        List<PlayerEvent> collected = new java.util.ArrayList<>();
+        PlayerEvents quickMixFirst = new PlayerEvents(state, player, collected::add,
+                com.tedredington.jazzclub.app.StationSort.QUICKMIX_10_NAME_AZ.comparator());
+
+        quickMixFirst.emit(EventType.USER_GET_STATIONS, Selection.NONE, EventResult.OK);
+
+        assertThat(collected.getFirst().stations()).containsExactly(QUICKMIX, EVANS, HARD_BOP);
+    }
+
+    @Test
     void anEventAboutAPastSongHasNoPositionAndNoQueue() {
         state.advance(); // a is history now
 

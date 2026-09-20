@@ -2,6 +2,7 @@ package com.tedredington.jazzclub.config;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.tedredington.jazzclub.app.ActionId;
@@ -30,6 +31,9 @@ public class ConfigFileEnvironmentPostProcessor implements EnvironmentPostProces
     /** Overrides the file location, e.g. {@code --jazzclub.config-file=/tmp/test-config}. */
     static final String LOCATION_PROPERTY = "jazzclub.config-file";
     static final String KEYS_PROPERTY = "jazzclub.keys";
+    static final String STATE_SOURCE_NAME = "jazzclubStateFile";
+    /** Overrides where volume and last station are remembered. */
+    static final String STATE_LOCATION_PROPERTY = "jazzclub.state-file";
 
     private final Log log;
     private final XdgDirectories directories;
@@ -71,6 +75,20 @@ public class ConfigFileEnvironmentPostProcessor implements EnvironmentPostProces
         } else {
             environment.getPropertySources().addLast(source);
         }
+        environment.getPropertySources().addAfter(PROPERTY_SOURCE_NAME, stateSource(environment));
+    }
+
+    /** What the last run remembered. Ranked right below the config file, so anything set there wins. */
+    private MapPropertySource stateSource(ConfigurableEnvironment environment) {
+        String override = environment.getProperty(STATE_LOCATION_PROPERTY);
+        Path file = override != null && !override.isBlank() ? Path.of(override) : directories.stateFile();
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put(STATE_LOCATION_PROPERTY, file.toString());
+        ParsedConfig state = new UserConfigFile().load(file);
+        for (ConfigKey key : List.of(ConfigKey.VOLUME, ConfigKey.AUTOSTART_STATION)) {
+            state.get(key.fileKey()).ifPresent(value -> properties.put(key.property(), value));
+        }
+        return new MapPropertySource(STATE_SOURCE_NAME, properties);
     }
 
     private Path configFile(ConfigurableEnvironment environment) {

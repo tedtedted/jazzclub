@@ -23,6 +23,7 @@ import com.tedredington.jazzclub.app.PlaybackState;
 import com.tedredington.jazzclub.app.Radio;
 import com.tedredington.jazzclub.app.StationPicker;
 import com.tedredington.jazzclub.app.StationService;
+import com.tedredington.jazzclub.app.StationSort;
 import com.tedredington.jazzclub.app.event.EventType;
 import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
@@ -61,7 +62,8 @@ class KeyActionsTest {
     private final Radio radio = new Radio(client, player, state, console, renderer, AudioQuality.HIGH, 3,
             playerEvents);
     private final StationService stationService = new StationService(client, calls, state, radio);
-    private final StationPicker stationPicker = new StationPicker(console, prompter, renderer);
+    private final StationPicker stationPicker = new StationPicker(console, prompter, renderer,
+            StationSort.NAME_AZ.comparator(), true);
     private final ListPicker listPicker = new ListPicker(console, prompter);
     private final MusicSearch musicSearch = new MusicSearch(client, console, prompter, listPicker);
     private final List<KeyAction> actions = List.of(
@@ -201,7 +203,7 @@ class KeyActionsTest {
         assertThat(console.output()).isEqualTo("\t 0) Artist of b - b\n");
 
         Renderer withStation = new Renderer(new com.tedredington.jazzclub.config.JazzclubProperties.Format(
-                "", "", "%t%@%s", "", "", "", "", " @ "));
+                "", "", "%t%@%s", "", "", "", "", " @ ", java.util.Map.of()));
         console.clear();
         new SongInfoAction(state, console, withStation).execute(ActionId.UPCOMING, null);
         assertThat(console.output()).isEqualTo("\tb @ Hard Bop Radio\n");

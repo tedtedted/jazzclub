@@ -21,6 +21,8 @@ class XdgDirectoriesTest {
 
         assertThat(directories.configFile()).isEqualTo(Path.of("/home/ted/.config/jazzclub/config"));
         assertThat(directories.stateDirectory()).isEqualTo(Path.of("/home/ted/.local/state/jazzclub"));
+        assertThat(directories.stateFile()).isEqualTo(Path.of("/home/ted/.local/state/jazzclub/state"));
+        assertThat(directories.cacheDirectory()).isEqualTo(Path.of("/home/ted/.cache/jazzclub"));
     }
 
     @Test

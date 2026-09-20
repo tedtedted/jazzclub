@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.tedredington.jazzclub.app.PlaybackState;
+import com.tedredington.jazzclub.app.StationSort;
 import com.tedredington.jazzclub.app.event.EventType;
 import com.tedredington.jazzclub.app.event.PlayerEvent;
 import com.tedredington.jazzclub.app.event.PlayerEvents;
@@ -15,7 +16,7 @@ public final class RecordingEvents {
     private final List<PlayerEvent> events = new ArrayList<>();
 
     public PlayerEvents on(PlaybackState state, AudioPlayer player) {
-        return new PlayerEvents(state, player, events::add);
+        return new PlayerEvents(state, player, events::add, StationSort.NAME_AZ.comparator());
     }
 
     public List<PlayerEvent> all() {

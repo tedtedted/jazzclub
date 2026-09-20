@@ -21,7 +21,8 @@ class StationPickerTest {
 
     private final RecordingConsole console = new RecordingConsole();
     private final ScriptedPrompter prompter = new ScriptedPrompter();
-    private final StationPicker picker = new StationPicker(console, prompter, new Renderer(FORMAT));
+    private final StationPicker picker = new StationPicker(console, prompter, new Renderer(FORMAT),
+            StationSort.NAME_AZ.comparator(), true);
 
     @Test
     void listsStationsSortedByNameIgnoringCase() {
@@ -96,6 +97,26 @@ class StationPickerTest {
         prompter.answer("99999999999999999999", "");
 
         assertThat(picker.pick(STATIONS, "? ")).isEmpty();
+    }
+
+    @Test
+    void theAutoselectSettingCanSwitchOffTakingASingleMatch() {
+        StationPicker careful = new StationPicker(console, prompter, new Renderer(FORMAT),
+                StationSort.NAME_AZ.comparator(), false);
+        prompter.answer("evans", "1");
+
+        assertThat(careful.pick(STATIONS, "? ")).contains(EVANS);
+        assertThat(prompter.prompts()).isEqualTo(2);
+    }
+
+    @Test
+    void theSortSettingDecidesTheNumbers() {
+        StationPicker quickMixFirst = new StationPicker(console, prompter, new Renderer(FORMAT),
+                StationSort.QUICKMIX_10_NAME_ZA.comparator(), true);
+        prompter.answer("0");
+
+        assertThat(quickMixFirst.pick(STATIONS, "? ")).contains(QUICKMIX);
+        assertThat(console.output()).startsWith("\t 0)  Q  QuickMix\n\t 1)   S Hard Bop Radio\n");
     }
 
     @Test

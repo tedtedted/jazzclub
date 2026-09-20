@@ -24,6 +24,8 @@ public enum ConfigKey {
     HISTORY("history", "jazzclub.history"),
     MAX_RETRY("max_retry", "jazzclub.max-retry"),
     AUTOSTART_STATION("autostart_station", "jazzclub.autostart-station"),
+    SORT("sort", "jazzclub.sort"),
+    AUTOSELECT("autoselect", "jazzclub.autoselect"),
     EVENT_COMMAND("event_command", "jazzclub.event-command"),
     FIFO("fifo", "jazzclub.fifo"),
 
@@ -35,6 +37,13 @@ public enum ConfigKey {
     BAN_ICON("ban_icon", "jazzclub.format.ban-icon"),
     TIRED_ICON("tired_icon", "jazzclub.format.tired-icon"),
     AT_ICON("at_icon", "jazzclub.format.at-icon"),
+    FORMAT_MSG_NONE("format_msg_none", "jazzclub.format.msg[none]"),
+    FORMAT_MSG_INFO("format_msg_info", "jazzclub.format.msg[info]"),
+    FORMAT_MSG_NOWPLAYING("format_msg_nowplaying", "jazzclub.format.msg[nowplaying]"),
+    FORMAT_MSG_TIME("format_msg_time", "jazzclub.format.msg[time]"),
+    FORMAT_MSG_ERR("format_msg_err", "jazzclub.format.msg[err]"),
+    FORMAT_MSG_QUESTION("format_msg_question", "jazzclub.format.msg[question]"),
+    FORMAT_MSG_LIST("format_msg_list", "jazzclub.format.msg[list]"),
 
     RPC_HOST("rpc_host", "jazzclub.pandora.rpc-host"),
     RPC_TLS_PORT("rpc_tls_port", "jazzclub.pandora.rpc-tls-port"),

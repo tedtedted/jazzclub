@@ -18,6 +18,7 @@ import com.tedredington.jazzclub.event.EventQueue;
 import com.tedredington.jazzclub.pandora.UserCredentials;
 import com.tedredington.jazzclub.pandora.error.InvalidLoginException;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.pandora.model.Station;
 import com.tedredington.jazzclub.player.PlaybackResult;
 import com.tedredington.jazzclub.testsupport.FakeAudioPlayer;
 import com.tedredington.jazzclub.app.event.EventType;
@@ -45,6 +46,7 @@ class PlayerLoopTest {
     private final Radio radio = new Radio(client, player, state, console, renderer, AudioQuality.HIGH, 3, emitter);
     private final KeyBindings bindings = new KeyBindings(Map.of());
     private CredentialsProvider credentials = () -> new UserCredentials("me@example.com", "pw");
+    private final List<String> saved = new java.util.ArrayList<>();
 
     /** Quit is the only action the loop needs to end; the real ones are covered in KeyActionsTest. */
     private final KeyAction quit = new KeyAction() {
@@ -64,8 +66,11 @@ class PlayerLoopTest {
     private PlayerLoop loop(String autostart) {
         ActionDispatcher dispatcher = new ActionDispatcher(bindings, state, console, List.of(quit));
         return new PlayerLoop(credentials, client, player, state, radio,
-                new StationPicker(console, prompter, renderer), dispatcher, bindings, events, console, renderer,
-                "1.2.3", autostart, new PandoraCalls(console, emitter));
+                new StationPicker(console, prompter, renderer,
+            StationSort.NAME_AZ.comparator(), true), dispatcher, bindings, events, console, renderer,
+                "1.2.3", autostart, new PandoraCalls(console, emitter),
+                (volume, station) -> saved.add("volume=" + volume + " station="
+                        + station.map(Station::name).orElse("none")));
     }
 
     @Test
@@ -112,6 +117,39 @@ class PlayerLoopTest {
 
         assertThat(playerEvents.last().type()).isEqualTo(EventType.SONG_FINISH);
         assertThat(playerEvents.last().played()).as("a scrobbler decides on this").hasSeconds(42);
+    }
+
+    @Test
+    void volumeAndStationAreRememberedOnTheWayOut() {
+        client.stations = List.of(EVANS);
+        client.playlists.add(List.of(song("a", "200")));
+        prompter.answer("0");
+        player.setVolume(-5);
+        events.publish(new Event.KeyPressed('q'));
+
+        loop(null).run();
+
+        assertThat(saved).containsExactly("volume=-5 station=Bill Evans Radio");
+    }
+
+    @Test
+    void quittingWithNothingPlayingRemembersThatToo() {
+        client.stations = List.of(EVANS);
+        prompter.answer("");
+        events.publish(new Event.KeyPressed('q'));
+
+        loop(null).run();
+
+        assertThat(saved).containsExactly("volume=0 station=none");
+    }
+
+    @Test
+    void aFailedLoginDoesNotOverwriteWhatWasRemembered() {
+        client.failure = new InvalidLoginException();
+
+        loop(null).run();
+
+        assertThat(saved).isEmpty();
     }
 
     @Test

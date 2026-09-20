@@ -116,6 +116,7 @@
                     <systemPropertyVariables>
                         <!-- tests must never read the developer's real ~/.config/jazzclub/config -->
                         <jazzclub.config-file>${project.build.directory}/no-such-config</jazzclub.config-file>
+                        <jazzclub.state-file>${project.build.directory}/no-such-state</jazzclub.state-file>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

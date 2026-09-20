@@ -39,6 +39,10 @@ public final class XdgDirectories {
         return resolve("XDG_CACHE_HOME", ".cache");
     }
 
+    public Path stateFile() {
+        return stateDirectory().resolve("state");
+    }
+
     public Path configFile() {
         return configDirectory().resolve("config");
     }

@@ -35,6 +35,29 @@ class AnsiConsoleTest {
     }
 
     @Test
+    void formatMsgSettingsWrapTheMessage() {
+        Console custom = new AnsiConsole(new PrintStream(bytes, true, StandardCharsets.UTF_8),
+                java.util.Map.of("info", "[info] %s", "err", "<<%s>>", "nowplaying", "%s"));
+
+        custom.info("hello\n");
+        custom.error("oops");
+        custom.print(MessageType.PLAYING, "song\n");
+        custom.list("untouched\n");
+
+        assertThat(written().replace(CLEAR_LINE, "")).isEqualTo("[info] hello\n<<oops>>song\n\tuntouched\n");
+    }
+
+    @Test
+    void aFormatWithoutPlaceholderIsIgnoredSoATypoCannotSwallowEveryMessage() {
+        Console custom = new AnsiConsole(new PrintStream(bytes, true, StandardCharsets.UTF_8),
+                java.util.Map.of("info", "no placeholder here", "bogus", "%s"));
+
+        custom.info("still visible\n");
+
+        assertThat(written()).isEqualTo(CLEAR_LINE + "(i) still visible\n");
+    }
+
+    @Test
     void everyTypeHasPianobarsPrefix() {
         console.error("e\n");
         console.list("l\n");

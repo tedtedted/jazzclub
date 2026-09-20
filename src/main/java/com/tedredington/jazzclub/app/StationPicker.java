@@ -14,7 +14,7 @@ import com.tedredington.jazzclub.ui.Prompter;
 import com.tedredington.jazzclub.ui.Renderer;
 
 /**
- * pianobar's station menu: a numbered list sorted by name. Typing a number selects; typing anything
+ * pianobar's station menu: a numbered list in the order of the {@code sort} setting. Typing a number selects; typing anything
  * else narrows the list to names containing it, and a single remaining match is selected by itself.
  */
 public final class StationPicker {
@@ -22,16 +22,22 @@ public final class StationPicker {
     private final Console console;
     private final Prompter prompter;
     private final Renderer renderer;
+    private final Comparator<Station> order;
+    private final boolean autoselect;
 
-    public StationPicker(Console console, Prompter prompter, Renderer renderer) {
+    /** @param autoselect pianobar's {@code autoselect}: whether the plain station menu takes a single match by itself */
+    public StationPicker(Console console, Prompter prompter, Renderer renderer, Comparator<Station> order,
+                         boolean autoselect) {
         this.console = console;
         this.prompter = prompter;
         this.renderer = renderer;
+        this.order = order;
+        this.autoselect = autoselect;
     }
 
     /** @return empty if the user backed out with an empty line, or there is nothing to choose from */
     public Optional<Station> pick(List<Station> stations, String prompt) {
-        return pick(() -> stations, prompt, true, input -> false);
+        return pick(() -> stations, prompt, autoselect, input -> false);
     }
 
     /**
@@ -49,9 +55,7 @@ public final class StationPicker {
 
         String filter = "";
         while (true) {
-            List<Station> sorted = stations.get().stream()
-                    .sorted(Comparator.comparing(s -> s.name().toLowerCase(Locale.ROOT)))
-                    .toList();
+            List<Station> sorted = stations.get().stream().sorted(order).toList();
             int matches = 0;
             int lastMatch = -1;
             for (int i = 0; i < sorted.size(); i++) {

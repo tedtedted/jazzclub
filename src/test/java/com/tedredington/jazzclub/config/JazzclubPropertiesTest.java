@@ -34,6 +34,8 @@ class JazzclubPropertiesTest {
             assertThat(properties.autostartStation()).isNull();
             assertThat(properties.eventCommand()).isNull();
             assertThat(properties.fifo()).isNull();
+            assertThat(properties.sort()).isEqualTo(com.tedredington.jazzclub.app.StationSort.NAME_AZ);
+            assertThat(properties.autoselect()).isTrue();
             assertThat(properties.ffmpeg()).isEqualTo("ffmpeg");
             assertThat(properties.format()).isEqualTo(TestData.FORMAT);
             assertThat(properties.keys()).isEmpty();

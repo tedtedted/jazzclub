@@ -3,7 +3,6 @@ package com.tedredington.jazzclub.app.event;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Consumer;
 
 import com.tedredington.jazzclub.app.PlaybackState;
@@ -18,11 +17,15 @@ public final class PlayerEvents {
     private final PlaybackState state;
     private final AudioPlayer player;
     private final Consumer<PlayerEvent> sink;
+    private final Comparator<Station> order;
 
-    public PlayerEvents(PlaybackState state, AudioPlayer player, Consumer<PlayerEvent> sink) {
+    /** @param order the order of the station menu, so {@code station0..n} match the numbers on screen */
+    public PlayerEvents(PlaybackState state, AudioPlayer player, Consumer<PlayerEvent> sink,
+                        Comparator<Station> order) {
         this.state = state;
         this.player = player;
         this.sink = sink;
+        this.order = order;
     }
 
     public void emit(EventType type, Selection selection, EventResult result) {
@@ -43,9 +46,7 @@ public final class PlayerEvents {
                 : null;
         boolean isPlayingSong = song != null
                 && state.song().filter(s -> s.trackToken().equals(song.trackToken())).isPresent();
-        List<Station> sorted = state.stations().stream()
-                .sorted(Comparator.comparing(s -> s.name().toLowerCase(Locale.ROOT)))
-                .toList();
+        List<Station> sorted = state.stations().stream().sorted(order).toList();
         sink.accept(new PlayerEvent(type, result, station, song, songStation, played,
                 isPlayingSong ? state.upcoming() : List.of(), sorted));
     }

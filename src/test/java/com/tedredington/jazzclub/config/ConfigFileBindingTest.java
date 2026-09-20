@@ -6,6 +6,7 @@ import java.time.Duration;
 
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyBindings;
+import com.tedredington.jazzclub.app.StationSort;
 import com.tedredington.jazzclub.credentials.CredentialsProvider;
 import com.tedredington.jazzclub.pandora.UserCredentials;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
@@ -48,6 +49,13 @@ class ConfigFileBindingTest {
         // two spaces after '=' in the file: pianobar drops one, the icon keeps the other
         assertThat(jazzclubProperties.format().loveIcon()).isEqualTo(" [loved]");
         assertThat(keyBindings.actionFor('l')).contains(ActionId.SONG_LOVE);
+    }
+
+    @Test
+    void pianobarsSpellingsBindToTypedSettings() {
+        assertThat(jazzclubProperties.sort()).isEqualTo(StationSort.QUICKMIX_01_NAME_ZA);
+        assertThat(jazzclubProperties.autoselect()).as("pianobar writes booleans as 0 and 1").isFalse();
+        assertThat(jazzclubProperties.format().msg()).containsEntry("err", "!! %s");
     }
 
     @Test

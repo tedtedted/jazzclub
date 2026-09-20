@@ -18,7 +18,7 @@ public final class TestData {
     /** pianobar's default formats. */
     public static final JazzclubProperties.Format FORMAT = new JazzclubProperties.Format(
             "\"%t\" by \"%a\" on \"%l\"%r%@%s", "Station \"%n\" (%i)", "%i) %a - %t%r", "%s%r/%t",
-            " <3", " </3", " zZ", " @ ");
+            " <3", " </3", " zZ", " @ ", java.util.Map.of());
 
     private TestData() {
     }

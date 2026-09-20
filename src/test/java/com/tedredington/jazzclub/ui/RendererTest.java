@@ -57,7 +57,7 @@ class RendererTest {
     @Test
     void customFormatsCanUseDurationStationAndElapsedTime() {
         Renderer custom = new Renderer(new JazzclubProperties.Format(
-                "%t %u", "%n", "%i) %t (%d)%@%s", "%e/%t", "+", "-", "z", " @ "));
+                "%t %u", "%n", "%i) %t (%d)%@%s", "%e/%t", "+", "-", "z", " @ ", java.util.Map.of()));
 
         assertThat(custom.listSong(0, song, "Hard Bop Radio")).isEqualTo(" 0) Peace Piece (03:05) @ Hard Bop Radio");
         assertThat(custom.listSong(0, song, null)).isEqualTo(" 0) Peace Piece (03:05)");
@@ -69,7 +69,7 @@ class RendererTest {
     void unknownDurationIsShownAsQuestionMarks() {
         Song noLength = new Song("t", "a", "l", "tok", "1", song.audioUrl(), song.encoding(), null, null, 0,
                 Duration.ZERO, Rating.NONE);
-        Renderer custom = new Renderer(new JazzclubProperties.Format("", "", "%d", "", "", "", "", ""));
+        Renderer custom = new Renderer(new JazzclubProperties.Format("", "", "%d", "", "", "", "", "", java.util.Map.of()));
 
         assertThat(custom.listSong(0, noLength, null)).isEqualTo("??:??");
     }

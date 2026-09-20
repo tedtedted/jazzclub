@@ -7,3 +7,6 @@ rpc_host = internal-tuner.pandora.com
 act_songlove = l
 love_icon =  [loved]
 volume = -4
+sort = quickmix_01_name_za
+autoselect = 0
+format_msg_err = !! %s

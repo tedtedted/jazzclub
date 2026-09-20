@@ -15,10 +15,12 @@ import com.tedredington.jazzclub.app.PandoraCalls;
 import com.tedredington.jazzclub.app.PlaybackState;
 import com.tedredington.jazzclub.app.PlayerLoop;
 import com.tedredington.jazzclub.app.Radio;
+import com.tedredington.jazzclub.app.SessionStore;
 import com.tedredington.jazzclub.app.StationPicker;
 import com.tedredington.jazzclub.app.StationService;
 import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.cli.VersionProvider;
+import com.tedredington.jazzclub.config.file.StateFile;
 import com.tedredington.jazzclub.config.file.XdgDirectories;
 import com.tedredington.jazzclub.credentials.CredentialsProvider;
 import com.tedredington.jazzclub.event.Event;
@@ -51,8 +53,15 @@ class AppConfiguration {
     }
 
     @Bean
-    Console console() {
-        return new AnsiConsole(System.out);
+    Console console(JazzclubProperties properties) {
+        return new AnsiConsole(System.out, properties.format().msg());
+    }
+
+    @Bean
+    SessionStore sessionStore(JazzclubProperties properties) {
+        return new StateFile(properties.stateFile() != null
+                ? properties.stateFile()
+                : XdgDirectories.system().stateFile());
     }
 
     @Bean
@@ -91,8 +100,9 @@ class AppConfiguration {
     /** Player events travel over Spring's event bus; see EventCommandListener for a subscriber. */
     @Bean
     @Lazy
-    PlayerEvents playerEvents(PlaybackState state, AudioPlayer player, ApplicationEventPublisher publisher) {
-        return new PlayerEvents(state, player, publisher::publishEvent);
+    PlayerEvents playerEvents(PlaybackState state, AudioPlayer player, ApplicationEventPublisher publisher,
+                              JazzclubProperties properties) {
+        return new PlayerEvents(state, player, publisher::publishEvent, properties.sort().comparator());
     }
 
     @Bean
@@ -127,8 +137,10 @@ class AppConfiguration {
     }
 
     @Bean
-    StationPicker stationPicker(Console console, Prompter prompter, Renderer renderer) {
-        return new StationPicker(console, prompter, renderer);
+    StationPicker stationPicker(Console console, Prompter prompter, Renderer renderer,
+                                JazzclubProperties properties) {
+        return new StationPicker(console, prompter, renderer, properties.sort().comparator(),
+                properties.autoselect());
     }
 
     @Bean
@@ -143,9 +155,10 @@ class AppConfiguration {
     PlayerLoop playerLoop(CredentialsProvider credentials, PandoraClient client, AudioPlayer player,
                           PlaybackState state, Radio radio, StationPicker stationPicker,
                           ActionDispatcher dispatcher, KeyBindings bindings, EventQueue events, Console console,
-                          Renderer renderer, JazzclubProperties properties, PandoraCalls calls) {
+                          Renderer renderer, JazzclubProperties properties, PandoraCalls calls,
+                          SessionStore sessionStore) {
         return new PlayerLoop(credentials, client, player, state, radio, stationPicker, dispatcher, bindings, events,
-                console, renderer, VersionProvider.version(), properties.autostartStation(), calls);
+                console, renderer, VersionProvider.version(), properties.autostartStation(), calls, sessionStore);
     }
 
     @Bean(destroyMethod = "close")

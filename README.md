@@ -182,6 +182,11 @@ jazzclub turns it into your own copy (`Transforming station...`), exactly as pia
 jazzclub reads `~/.config/jazzclub/config`, or `$XDG_CONFIG_HOME/jazzclub/config` if that variable
 is set. Pass `--config FILE` to use another file.
 
+jazzclub remembers the volume and the station you were listening to in
+`~/.local/state/jazzclub/state` (`$XDG_STATE_HOME`), and picks up there on the next start. Anything
+you set in the config file takes precedence. Quit with nothing playing, and the next start shows the
+station menu again.
+
 The format is pianobar's: one `key = value` per line, `#` starts a comment. Values are taken
 literally, without quotes or escapes. **You can copy your pianobar config as it is**; settings jazzclub
 does not support yet are ignored (`-v` lists them).
@@ -208,9 +213,11 @@ act_songban = disabled
 | `password` | | Your password, in plain text. Make the file `chmod 600`; jazzclub warns you otherwise. |
 | `password_command` | | A shell command that prints the password. Used when `password` is not set. |
 | `audio_quality` | `high` | `low`, `medium` or `high`. Free accounts get AAC at every level. |
-| `volume` | `0` | Initial volume correction in dB. Usually between -30 and +5. |
+| `volume` | what you left it at | Initial volume correction in dB. Usually between -30 and +5. |
 | `gain_mul` | `1.0` | How much of Pandora's per-track loudness correction to apply; `0.0` turns it off. |
-| `autostart_station` | | Station id to play right away. Press `i` to see the id of the current station. |
+| `autostart_station` | the last one played | Station id to play right away. Press `i` to see the id of the current station. |
+| `sort` | `name_az` | Order of the station list: `name_az`, `name_za`, or with QuickMix pinned last (`quickmix_01_name_az`, `quickmix_01_name_za`) or first (`quickmix_10_name_az`, `quickmix_10_name_za`). |
+| `autoselect` | `1` | `0`: never pick a station for you, even if your filter leaves only one. |
 | `history` | `5` | How many played songs to remember. |
 | `event_command` | | A program to run on every event, see [Event scripts](#event-scripts). |
 | `fifo` | `~/.config/jazzclub/ctl` | Named pipe for [remote control](#remote-control). |
@@ -227,6 +234,19 @@ The look of the output can be changed with pianobar's format strings:
 | `format_list_song` | `%i) %a - %t%r` | `%i` number, `%a` artist, `%t` title, `%r` rating icon, `%d` duration, `%@`, `%s` |
 | `format_time` | `%s%r/%t` | `%e` elapsed, `%r` remaining, `%t` total, `%s` sign |
 | `love_icon`, `ban_icon`, `tired_icon`, `at_icon` | ` <3`, ` </3`, ` zZ`, ` @ ` | |
+
+The prefixes in front of every line can be changed as well. Each setting is text with one `%s` where
+the message goes; a value without `%s` is ignored.
+
+| Key | Default |
+|---|---|
+| `format_msg_none` | `%s` |
+| `format_msg_info` | `(i) %s` |
+| `format_msg_nowplaying` | `\|>  %s` |
+| `format_msg_time` | `#   %s` |
+| `format_msg_err` | `/!\ %s` |
+| `format_msg_question` | `[?] %s` |
+| `format_msg_list` | a tab, then `%s` |
 
 ANSI colour codes work inside format strings, exactly as in pianobar.
 

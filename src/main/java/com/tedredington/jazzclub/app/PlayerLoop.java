@@ -39,12 +39,14 @@ public final class PlayerLoop {
     private final String version;
     private final String autostartStation;
     private final PandoraCalls calls;
+    private final SessionStore sessionStore;
 
     public PlayerLoop(CredentialsProvider credentials, PandoraClient client, AudioPlayer player, PlaybackState state,
                       Radio radio, StationPicker stationPicker, ActionDispatcher dispatcher, KeyBindings bindings,
                       EventQueue events, Console console, Renderer renderer, String version,
-                      String autostartStation, PandoraCalls calls) {
+                      String autostartStation, PandoraCalls calls, SessionStore sessionStore) {
         this.calls = calls;
+        this.sessionStore = sessionStore;
         this.credentials = credentials;
         this.client = client;
         this.player = player;
@@ -77,6 +79,7 @@ public final class PlayerLoop {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
+            sessionStore.save(player.volume(), state.station());
             radio.shutdown();
             console.append("\n");
         }
