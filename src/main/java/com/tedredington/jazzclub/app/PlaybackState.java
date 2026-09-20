@@ -68,9 +68,37 @@ public final class PlaybackState {
         return Optional.ofNullable(song);
     }
 
-    /** Replaces the playing song with an updated copy, e.g. after rating it. */
+    /** Replaces a song with an updated copy, e.g. after rating it, whether it is playing or in the history. */
     public void updateSong(Song updated) {
-        this.song = updated;
+        if (song != null && song.trackToken().equals(updated.trackToken())) {
+            song = updated;
+            return;
+        }
+        List<Song> changed = new ArrayList<>(history);
+        changed.replaceAll(s -> s.trackToken().equals(updated.trackToken()) ? updated : s);
+        history.clear();
+        history.addAll(changed);
+    }
+
+    /** The up-to-date copy of a song that may have been rated since the caller got hold of it. */
+    public Song current(Song known) {
+        if (song != null && song.trackToken().equals(known.trackToken())) {
+            return song;
+        }
+        return history.stream().filter(s -> s.trackToken().equals(known.trackToken())).findFirst().orElse(known);
+    }
+
+    public boolean isPlaying(Song candidate) {
+        return song != null && song.trackToken().equals(candidate.trackToken());
+    }
+
+    /** What key presses apply to by default: whatever is on air. */
+    public Selection selection() {
+        return new Selection(station, song);
+    }
+
+    public int historySize() {
+        return historySize;
     }
 
     public List<Song> upcoming() {

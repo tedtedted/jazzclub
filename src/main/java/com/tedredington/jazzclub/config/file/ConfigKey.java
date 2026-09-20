@@ -24,6 +24,7 @@ public enum ConfigKey {
     HISTORY("history", "jazzclub.history"),
     MAX_RETRY("max_retry", "jazzclub.max-retry"),
     AUTOSTART_STATION("autostart_station", "jazzclub.autostart-station"),
+    EVENT_COMMAND("event_command", "jazzclub.event-command"),
 
     FORMAT_NOWPLAYING_SONG("format_nowplaying_song", "jazzclub.format.nowplaying-song"),
     FORMAT_NOWPLAYING_STATION("format_nowplaying_station", "jazzclub.format.nowplaying-station"),

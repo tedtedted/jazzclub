@@ -18,10 +18,13 @@ import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.KeyBindings;
 import com.tedredington.jazzclub.app.ListPicker;
 import com.tedredington.jazzclub.app.MusicSearch;
+import com.tedredington.jazzclub.app.PandoraCalls;
 import com.tedredington.jazzclub.app.PlaybackState;
 import com.tedredington.jazzclub.app.Radio;
 import com.tedredington.jazzclub.app.StationPicker;
 import com.tedredington.jazzclub.app.StationService;
+import com.tedredington.jazzclub.app.event.EventType;
+import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.pandora.model.GenreCategory;
@@ -32,6 +35,7 @@ import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.player.PlaybackResult;
 import com.tedredington.jazzclub.testsupport.FakeAudioPlayer;
 import com.tedredington.jazzclub.testsupport.RecordingConsole;
+import com.tedredington.jazzclub.testsupport.RecordingEvents;
 import com.tedredington.jazzclub.testsupport.ScriptedPrompter;
 import com.tedredington.jazzclub.testsupport.StubPandoraClient;
 import com.tedredington.jazzclub.ui.Renderer;
@@ -48,21 +52,26 @@ class KeyActionsTest {
     private final ScriptedPrompter prompter = new ScriptedPrompter();
     private final Renderer renderer = new Renderer(FORMAT);
     private final KeyBindings bindings = new KeyBindings(Map.of());
-    private final Radio radio = new Radio(client, player, state, console, renderer, AudioQuality.HIGH, 3);
-    private final StationService stationService = new StationService(client, state, radio, console);
+    private final RecordingEvents events = new RecordingEvents();
+    private final PlayerEvents playerEvents = events.on(state, player);
+    private final PandoraCalls calls = new PandoraCalls(console, playerEvents);
+    private final Radio radio = new Radio(client, player, state, console, renderer, AudioQuality.HIGH, 3,
+            playerEvents);
+    private final StationService stationService = new StationService(client, calls, state, radio);
     private final StationPicker stationPicker = new StationPicker(console, prompter, renderer);
     private final ListPicker listPicker = new ListPicker(console, prompter);
     private final MusicSearch musicSearch = new MusicSearch(client, console, prompter, listPicker);
     private final List<KeyAction> actions = List.of(
             new HelpAction(bindings, console),
-            new RateSongAction(client, state, radio, stationService, console),
-            new ExplainAction(client, state, console),
+            new RateSongAction(client, calls, state, radio, stationService),
+            new ExplainAction(client, calls, console),
             new SongInfoAction(state, console, renderer),
             new TransportAction(player, radio, state),
             new ChangeStationAction(stationPicker, state, radio),
-            new CreateStationAction(client, state, stationService, musicSearch, listPicker, prompter, console),
+            new CreateStationAction(client, calls, stationService, musicSearch, listPicker, prompter, console),
             new EditStationAction(state, stationService, musicSearch, stationPicker, prompter, console),
-            new BookmarkAction(client, state, prompter, console));
+            new BookmarkAction(client, calls, prompter, console),
+            new HistoryAction(state, listPicker, prompter, console, renderer));
     private final ActionDispatcher dispatcher = new ActionDispatcher(bindings, state, console, actions);
 
     private final Song a = song("a", "200");
@@ -75,6 +84,17 @@ class KeyActionsTest {
         radio.tune(EVANS);
         client.calls.clear();
         console.clear();
+        events.clear();
+    }
+
+    /** Ends the playing song the way the player thread and main loop would. */
+    private void songEnds() {
+        long id = player.lastId();
+        player.finish();
+        radio.onTrackFinished(id, PlaybackResult.completed());
+        client.calls.clear();
+        console.clear();
+        events.clear();
     }
 
     private void press(String keys) {
@@ -94,7 +114,7 @@ class KeyActionsTest {
     @Test
     void helpListsEveryBoundActionWithItsCurrentKey() {
         KeyBindings custom = new KeyBindings(Map.of("act_songlove", "l", "act_songban", "disabled"));
-        new HelpAction(custom, console).execute(ActionId.HELP);
+        new HelpAction(custom, console).execute(ActionId.HELP, null);
 
         assertThat(console.output()).startsWith("\r\tl    love song\n\ta    add music to station\n")
                 .contains("\tq    quit\n")
@@ -178,7 +198,7 @@ class KeyActionsTest {
         Renderer withStation = new Renderer(new com.tedredington.jazzclub.config.JazzclubProperties.Format(
                 "", "", "%t%@%s", "", "", "", "", " @ "));
         console.clear();
-        new SongInfoAction(state, console, withStation).execute(ActionId.UPCOMING);
+        new SongInfoAction(state, console, withStation).execute(ActionId.UPCOMING, null);
         assertThat(console.output()).isEqualTo("\tb @ Hard Bop Radio\n");
     }
 
@@ -224,10 +244,16 @@ class KeyActionsTest {
     }
 
     @Test
-    void quitStopsThePlayerAndEndsTheLoop() {
-        press("q");
+    void quitOnlyAsksTheLoopToEndSoTheShutdownCanStillReadThePosition() {
+        player.elapsed(java.time.Duration.ofSeconds(42));
 
+        press("q");
         assertThat(state.quitRequested()).isTrue();
+        assertThat(player.stops()).as("stopping is the shutdown's job").isZero();
+
+        radio.shutdown();
+        assertThat(events.last().type()).isEqualTo(EventType.SONG_FINISH);
+        assertThat(events.last().played()).hasSeconds(42);
         assertThat(player.stops()).isEqualTo(1);
     }
 
@@ -426,6 +452,144 @@ class KeyActionsTest {
 
         assertThat(client.calls).containsExactly("bookmark song a", "bookmark artist a");
         assertThat(console.output()).startsWith("[?] Bookmark [s]ong or [a]rtist? (i) Bookmarking song... Ok.\n");
+    }
+
+    @Test
+    void ratingsAreReportedWithTheNewRating() {
+        press("+");
+
+        assertThat(events.types()).containsExactly(EventType.SONG_LOVE);
+        assertThat(events.last().song().rating()).isEqualTo(Rating.LOVE);
+        assertThat(events.last().result().isOk()).isTrue();
+    }
+
+    @Test
+    void explainBookmarksAndGenreFetchAreReported() {
+        press("e");
+        prompter.answer("s");
+        press("b");
+        prompter.answer("a");
+        press("b");
+        prompter.answer("");
+        press("g");
+
+        assertThat(events.types()).containsExactly(EventType.SONG_EXPLAIN, EventType.SONG_BOOKMARK,
+                EventType.ARTIST_BOOKMARK, EventType.STATION_FETCH_GENRE);
+    }
+
+    @Test
+    void historyIsEmptyUntilASongHasEnded() {
+        press("h");
+
+        assertThat(console.output()).isEqualTo("(i) No history yet.\n");
+    }
+
+    @Test
+    void historyCanBeSwitchedOff() {
+        PlaybackState noHistory = new PlaybackState(0);
+        new HistoryAction(noHistory, listPicker, prompter, console, renderer).execute(ActionId.HISTORY, null);
+
+        assertThat(console.output()).isEqualTo("(i) History disabled.\n");
+    }
+
+    @Test
+    void aPastSongCanBeLovedAfterAllWithoutTouchingWhatIsPlaying() {
+        songEnds(); // a is history, b is playing
+        prompter.answer("0", "+");
+
+        press("h");
+
+        assertThat(console.output()).isEqualTo("""
+                \t 0) Artist of a - a
+                [?] Select song: [?] What to do with this song? (i) Loving song... Ok.
+                """);
+        assertThat(client.calls).containsExactly("love a");
+        assertThat(state.history()).extracting(Song::rating).containsExactly(Rating.LOVE);
+        assertThat(state.song()).map(Song::rating).contains(Rating.NONE);
+        assertThat(events.last().song().title()).isEqualTo("a");
+        assertThat(events.last().song().rating()).isEqualTo(Rating.LOVE);
+    }
+
+    @Test
+    void banningAPastSongDoesNotSkipTheCurrentOne() {
+        songEnds();
+        prompter.answer("0", "-");
+
+        press("h");
+
+        assertThat(client.calls).containsExactly("ban a");
+        assertThat(player.stops()).isZero();
+    }
+
+    @Test
+    void banningTheCurrentSongStillSkips() {
+        songEnds();
+
+        press("-");
+
+        assertThat(client.calls).containsExactly("transform Hard Bop Radio", "ban b");
+        assertThat(player.stops()).isEqualTo(1);
+    }
+
+    @Test
+    void actionsOnAPastSongUseItsOwnStation() {
+        songEnds(); // history: a from Bill Evans Radio; playing: b from Hard Bop Radio
+        prompter.answer("0", "i");
+
+        press("h");
+
+        assertThat(console.output()).endsWith("""
+                |>  Station "Bill Evans Radio" (200)
+                |>  "a" by "Artist of a" on "Album of a"
+                """);
+    }
+
+    @Test
+    void afterHelpTheQuestionIsAskedAgain() {
+        songEnds();
+        prompter.answer("0", "?", "v", "s");
+
+        press("h");
+
+        assertThat(console.output()).contains("quit\n").contains("[?] Create station from [s]ong or [a]rtist? ");
+        assertThat(client.calls).containsExactly("create song a");
+    }
+
+    @Test
+    void anUnboundKeyOrEnterLeavesTheHistoryMenu() {
+        songEnds();
+        prompter.answer("0", "#");
+        press("h");
+        prompter.answer("0", "");
+        press("h");
+        prompter.answer("");
+        press("h");
+
+        assertThat(client.calls).isEmpty();
+    }
+
+    @Test
+    void aPastSongWhoseStationWasDeletedCannotBeActedOn() {
+        songEnds();
+        state.removeStation(EVANS);
+        prompter.answer("0");
+
+        press("h");
+
+        assertThat(console.output()).endsWith("/!\\ Station does not exist any more.\n");
+        assertThat(prompter.prompts()).as("the 'what to do' question is never asked").isEqualTo(1);
+        assertThat(client.calls).isEmpty();
+    }
+
+    @Test
+    void theHistoryListCanBeFilteredLikeEveryOtherList() {
+        songEnds();
+        songEnds(); // history: b, a; the queue ran dry, nothing is playing
+        prompter.answer("artist of a", "1", "e");
+
+        press("h");
+
+        assertThat(client.calls).containsExactly("explain a");
     }
 
     @Test

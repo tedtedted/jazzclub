@@ -2,6 +2,7 @@ package com.tedredington.jazzclub.app.action;
 
 import java.util.Set;
 
+import com.tedredington.jazzclub.app.ActionContext;
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.PlaybackState;
@@ -28,7 +29,7 @@ class ChangeStationAction implements KeyAction {
     }
 
     @Override
-    public void execute(ActionId id) {
+    public void execute(ActionId id, ActionContext context) {
         picker.pick(state.stations(), "Select station: ").ifPresent(radio::tune);
     }
 }

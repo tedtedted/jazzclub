@@ -2,9 +2,11 @@ package com.tedredington.jazzclub.app.action;
 
 import java.util.Set;
 
+import com.tedredington.jazzclub.app.ActionContext;
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
-import com.tedredington.jazzclub.app.PlaybackState;
+import com.tedredington.jazzclub.app.PandoraCalls;
+import com.tedredington.jazzclub.app.event.EventType;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.ui.Console;
@@ -16,13 +18,13 @@ import org.springframework.stereotype.Component;
 class BookmarkAction implements KeyAction {
 
     private final PandoraClient client;
-    private final PlaybackState state;
+    private final PandoraCalls calls;
     private final Prompter prompter;
     private final Console console;
 
-    BookmarkAction(PandoraClient client, PlaybackState state, Prompter prompter, Console console) {
+    BookmarkAction(PandoraClient client, PandoraCalls calls, Prompter prompter, Console console) {
         this.client = client;
-        this.state = state;
+        this.calls = calls;
         this.prompter = prompter;
         this.console = console;
     }
@@ -33,18 +35,17 @@ class BookmarkAction implements KeyAction {
     }
 
     @Override
-    public void execute(ActionId id) {
-        Song song = state.song().orElseThrow();
+    public void execute(ActionId id, ActionContext context) {
+        Song song = context.selection().song();
         console.print(MessageType.QUESTION, "Bookmark [s]ong or [a]rtist? ");
         prompter.readChar("sa").ifPresent(kind -> {
             if (kind == 's') {
-                console.info("Bookmarking song... ");
-                client.bookmarkSong(song);
+                calls.run("Bookmarking song... ", EventType.SONG_BOOKMARK, context.selection(),
+                        () -> client.bookmarkSong(song));
             } else {
-                console.info("Bookmarking artist... ");
-                client.bookmarkArtist(song);
+                calls.run("Bookmarking artist... ", EventType.ARTIST_BOOKMARK, context.selection(),
+                        () -> client.bookmarkArtist(song));
             }
-            console.append("Ok.\n");
         });
     }
 }

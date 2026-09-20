@@ -2,60 +2,62 @@ package com.tedredington.jazzclub.app;
 
 import java.util.List;
 
+import com.tedredington.jazzclub.app.event.EventType;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.model.Station;
 import com.tedredington.jazzclub.pandora.model.StationSeed;
-import com.tedredington.jazzclub.ui.Console;
 
 /**
- * Changes to the listener's stations. Each operation announces itself like pianobar, calls Pandora,
- * and then brings the local station list in line, so the menu is right without fetching it again.
- * A failing call throws; the dispatcher completes the announcement with the error.
+ * Changes to the listener's stations. Each operation calls Pandora and then brings the local station
+ * list in line, so the menu is right without fetching it again. Local state only changes when the
+ * call succeeded.
  */
 public final class StationService {
 
     private final PandoraClient client;
+    private final PandoraCalls calls;
     private final PlaybackState state;
     private final Radio radio;
-    private final Console console;
 
-    public StationService(PandoraClient client, PlaybackState state, Radio radio, Console console) {
+    public StationService(PandoraClient client, PandoraCalls calls, PlaybackState state, Radio radio) {
         this.client = client;
+        this.calls = calls;
         this.state = state;
         this.radio = radio;
-        this.console = console;
     }
 
-    /** @param announcement e.g. {@code "Creating station... "} */
-    public Station create(StationSeed seed, String announcement) {
-        console.info(announcement);
-        Station created = client.createStation(seed);
-        state.putStation(created);
-        console.append("Ok.\n");
-        return created;
+    /**
+     * @param announcement e.g. {@code "Creating station... "}
+     * @param event        creating, adding a genre station and adding a shared one are distinct events
+     */
+    public Station create(StationSeed seed, String announcement, EventType event, Selection selection) {
+        return calls.call(announcement, event, selection, () -> {
+            Station created = client.createStation(seed);
+            state.putStation(created);
+            return created;
+        });
     }
 
     public void addMusic(Station station, String musicToken) {
         Station own = transformIfShared(station);
-        console.info("Adding music to station... ");
-        client.addMusic(own, musicToken);
-        console.append("Ok.\n");
+        calls.run("Adding music to station... ", EventType.STATION_ADD_MUSIC, selectionFor(own),
+                () -> client.addMusic(own, musicToken));
     }
 
     public void rename(Station station, String newName) {
         Station own = transformIfShared(station);
-        console.info("Renaming station... ");
-        client.renameStation(own, newName);
-        state.putStation(own.withName(newName));
-        console.append("Ok.\n");
+        calls.run("Renaming station... ", EventType.STATION_RENAME, selectionFor(own), () -> {
+            client.renameStation(own, newName);
+            state.putStation(own.withName(newName));
+        });
     }
 
     public void delete(Station station) {
-        console.info("Deleting station... ");
-        client.deleteStation(station);
         boolean wasPlaying = state.station().filter(s -> s.token().equals(station.token())).isPresent();
-        state.removeStation(station);
-        console.append("Ok.\n");
+        calls.run("Deleting station... ", EventType.STATION_DELETE, selectionFor(station), () -> {
+            client.deleteStation(station);
+            state.removeStation(station);
+        });
         if (wasPlaying) {
             radio.stop();
         }
@@ -63,10 +65,10 @@ public final class StationService {
 
     /** @param selection every station, with {@link Station#inQuickMix()} as the listener wants it */
     public void setQuickMix(List<Station> selection) {
-        console.info("Setting QuickMix stations... ");
-        client.setQuickMix(selection.stream().filter(Station::inQuickMix).toList());
-        selection.forEach(state::putStation);
-        console.append("Ok.\n");
+        calls.run("Setting QuickMix stations... ", EventType.STATION_QUICKMIX_TOGGLE, state.selection(), () -> {
+            client.setQuickMix(selection.stream().filter(Station::inQuickMix).toList());
+            selection.forEach(state::putStation);
+        });
     }
 
     /**
@@ -79,11 +81,16 @@ public final class StationService {
         if (station.creator()) {
             return station;
         }
-        console.info("Transforming station... ");
-        client.transformSharedStation(station);
-        Station own = station.asOwned();
-        state.putStation(own);
-        console.append("Ok.\n");
-        return own;
+        return calls.call("Transforming station... ", null, Selection.NONE, () -> {
+            client.transformSharedStation(station);
+            Station own = station.asOwned();
+            state.putStation(own);
+            return own;
+        });
+    }
+
+    /** The station being edited, with the playing song only if it belongs to the playing station. */
+    private Selection selectionFor(Station station) {
+        return new Selection(station, state.song().orElse(null));
     }
 }

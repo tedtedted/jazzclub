@@ -2,6 +2,7 @@ package com.tedredington.jazzclub.app.action;
 
 import java.util.Set;
 
+import com.tedredington.jazzclub.app.ActionContext;
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.PlaybackState;
@@ -31,7 +32,7 @@ class TransportAction implements KeyAction {
     }
 
     @Override
-    public void execute(ActionId id) {
+    public void execute(ActionId id, ActionContext context) {
         switch (id) {
             case SONG_NEXT -> radio.skip();
             case SONG_PAUSE_TOGGLE, SONG_PAUSE_TOGGLE_2 -> player.setPaused(!player.isPaused());
@@ -40,10 +41,9 @@ class TransportAction implements KeyAction {
             case VOLUME_DOWN -> player.setVolume(player.volume() - 1);
             case VOLUME_UP -> player.setVolume(player.volume() + 1);
             case VOLUME_RESET -> player.setVolume(0);
-            case QUIT -> {
-                state.requestQuit();
-                player.stop();
-            }
+            // Only ask the loop to end. Its shutdown stops the player, after reading how much of the
+            // song was heard; stopping here would lose that for the final "songfinish".
+            case QUIT -> state.requestQuit();
             default -> throw new IllegalArgumentException("Not a transport action: " + id);
         }
     }

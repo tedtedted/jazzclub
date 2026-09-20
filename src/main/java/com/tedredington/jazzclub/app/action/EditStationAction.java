@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
+import com.tedredington.jazzclub.app.ActionContext;
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.MusicSearch;
@@ -46,8 +47,8 @@ class EditStationAction implements KeyAction {
     }
 
     @Override
-    public void execute(ActionId id) {
-        Station station = state.station().orElseThrow();
+    public void execute(ActionId id, ActionContext context) {
+        Station station = context.selection().station();
         switch (id) {
             case STATION_ADD_MUSIC -> search.selectMusicToken("Add artist or title to station: ")
                     .ifPresent(token -> stations.addMusic(station, token));

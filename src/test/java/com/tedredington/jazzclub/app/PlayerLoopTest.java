@@ -20,7 +20,10 @@ import com.tedredington.jazzclub.pandora.error.InvalidLoginException;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.player.PlaybackResult;
 import com.tedredington.jazzclub.testsupport.FakeAudioPlayer;
+import com.tedredington.jazzclub.app.event.EventType;
+import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.testsupport.RecordingConsole;
+import com.tedredington.jazzclub.testsupport.RecordingEvents;
 import com.tedredington.jazzclub.testsupport.ScriptedPrompter;
 import com.tedredington.jazzclub.testsupport.StubPandoraClient;
 import com.tedredington.jazzclub.ui.Renderer;
@@ -37,7 +40,9 @@ class PlayerLoopTest {
     private final ScriptedPrompter prompter = new ScriptedPrompter();
     private final EventQueue events = new EventQueue();
     private final Renderer renderer = new Renderer(FORMAT);
-    private final Radio radio = new Radio(client, player, state, console, renderer, AudioQuality.HIGH, 3);
+    private final RecordingEvents playerEvents = new RecordingEvents();
+    private final PlayerEvents emitter = playerEvents.on(state, player);
+    private final Radio radio = new Radio(client, player, state, console, renderer, AudioQuality.HIGH, 3, emitter);
     private final KeyBindings bindings = new KeyBindings(Map.of());
     private CredentialsProvider credentials = () -> new UserCredentials("me@example.com", "pw");
 
@@ -49,7 +54,7 @@ class PlayerLoopTest {
         }
 
         @Override
-        public void execute(ActionId id) {
+        public void execute(ActionId id, ActionContext context) {
             if (id == ActionId.QUIT) {
                 state.requestQuit();
             }
@@ -60,7 +65,7 @@ class PlayerLoopTest {
         ActionDispatcher dispatcher = new ActionDispatcher(bindings, state, console, List.of(quit));
         return new PlayerLoop(credentials, client, player, state, radio,
                 new StationPicker(console, prompter, renderer), dispatcher, bindings, events, console, renderer,
-                "1.2.3", autostart);
+                "1.2.3", autostart, new PandoraCalls(console, emitter));
     }
 
     @Test
@@ -80,6 +85,43 @@ class PlayerLoopTest {
                 (i) Get stations... Ok.
                 """).contains("|>  \"a\" by").endsWith("\n");
         assertThat(player.stops()).isEqualTo(1);
+    }
+
+    @Test
+    void aWholeSessionIsReportedFromLoginToTheLastSong() {
+        client.stations = List.of(EVANS);
+        client.playlists.add(List.of(song("a", "200")));
+        prompter.answer("0");
+        events.publish(new Event.KeyPressed('q'));
+
+        loop(null).run();
+
+        assertThat(playerEvents.types()).containsExactly(EventType.USER_LOGIN, EventType.USER_GET_STATIONS,
+                EventType.STATION_FETCH_PLAYLIST, EventType.SONG_START, EventType.SONG_FINISH);
+    }
+
+    @Test
+    void quittingReportsHowMuchOfTheLastSongWasHeard() {
+        client.stations = List.of(EVANS);
+        client.playlists.add(List.of(song("a", "200")));
+        prompter.answer("0");
+        player.elapsed(Duration.ofSeconds(42));
+        events.publish(new Event.KeyPressed('q'));
+
+        loop(null).run();
+
+        assertThat(playerEvents.last().type()).isEqualTo(EventType.SONG_FINISH);
+        assertThat(playerEvents.last().played()).as("a scrobbler decides on this").hasSeconds(42);
+    }
+
+    @Test
+    void aFailedLoginIsReportedToo() {
+        client.failure = new InvalidLoginException();
+
+        loop(null).run();
+
+        assertThat(playerEvents.types()).containsExactly(EventType.USER_LOGIN);
+        assertThat(playerEvents.last().result().isOk()).isFalse();
     }
 
     @Test

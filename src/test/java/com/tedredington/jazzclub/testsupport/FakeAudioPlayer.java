@@ -18,6 +18,7 @@ public final class FakeAudioPlayer implements AudioPlayer {
     private boolean paused;
     private int volume;
     private int stops;
+    private boolean stopped;
     private Duration elapsed = Duration.ZERO;
 
     @Override
@@ -26,12 +27,14 @@ public final class FakeAudioPlayer implements AudioPlayer {
         played.add(new Played(id, audioUrl, trackGainDb));
         active = true;
         paused = false;
+        stopped = false;
         return id;
     }
 
     @Override
     public void stop() {
         stops++;
+        stopped = true;
     }
 
     /** What the real player does once its thread has wound down. */
@@ -55,9 +58,10 @@ public final class FakeAudioPlayer implements AudioPlayer {
         return active;
     }
 
+    /** Like the real player: once stopped, the position is gone. */
     @Override
     public Duration elapsed() {
-        return elapsed;
+        return stopped ? Duration.ZERO : elapsed;
     }
 
     public void elapsed(Duration elapsed) {

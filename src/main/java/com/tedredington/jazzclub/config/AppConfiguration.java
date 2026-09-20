@@ -10,11 +10,13 @@ import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.KeyBindings;
 import com.tedredington.jazzclub.app.ListPicker;
 import com.tedredington.jazzclub.app.MusicSearch;
+import com.tedredington.jazzclub.app.PandoraCalls;
 import com.tedredington.jazzclub.app.PlaybackState;
 import com.tedredington.jazzclub.app.PlayerLoop;
 import com.tedredington.jazzclub.app.Radio;
 import com.tedredington.jazzclub.app.StationPicker;
 import com.tedredington.jazzclub.app.StationService;
+import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.cli.VersionProvider;
 import com.tedredington.jazzclub.config.file.XdgDirectories;
 import com.tedredington.jazzclub.credentials.CredentialsProvider;
@@ -32,6 +34,7 @@ import com.tedredington.jazzclub.ui.Console;
 import com.tedredington.jazzclub.ui.EventQueuePrompter;
 import com.tedredington.jazzclub.ui.Prompter;
 import com.tedredington.jazzclub.ui.Renderer;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -83,11 +86,25 @@ class AppConfiguration {
                 properties.gainMul());
     }
 
+    /** Player events travel over Spring's event bus; see EventCommandListener for a subscriber. */
+    @Bean
+    @Lazy
+    PlayerEvents playerEvents(PlaybackState state, AudioPlayer player, ApplicationEventPublisher publisher) {
+        return new PlayerEvents(state, player, publisher::publishEvent);
+    }
+
+    @Bean
+    @Lazy
+    PandoraCalls pandoraCalls(Console console, PlayerEvents events) {
+        return new PandoraCalls(console, events);
+    }
+
     @Bean
     @Lazy
     Radio radio(PandoraClient client, AudioPlayer player, PlaybackState state, Console console, Renderer renderer,
-                JazzclubProperties properties) {
-        return new Radio(client, player, state, console, renderer, properties.audioQuality(), properties.maxRetry());
+                JazzclubProperties properties, PlayerEvents events) {
+        return new Radio(client, player, state, console, renderer, properties.audioQuality(), properties.maxRetry(),
+                events);
     }
 
     @Bean
@@ -103,8 +120,8 @@ class AppConfiguration {
 
     @Bean
     @Lazy
-    StationService stationService(PandoraClient client, PlaybackState state, Radio radio, Console console) {
-        return new StationService(client, state, radio, console);
+    StationService stationService(PandoraClient client, PandoraCalls calls, PlaybackState state, Radio radio) {
+        return new StationService(client, calls, state, radio);
     }
 
     @Bean
@@ -124,9 +141,9 @@ class AppConfiguration {
     PlayerLoop playerLoop(CredentialsProvider credentials, PandoraClient client, AudioPlayer player,
                           PlaybackState state, Radio radio, StationPicker stationPicker,
                           ActionDispatcher dispatcher, KeyBindings bindings, EventQueue events, Console console,
-                          Renderer renderer, JazzclubProperties properties) {
+                          Renderer renderer, JazzclubProperties properties, PandoraCalls calls) {
         return new PlayerLoop(credentials, client, player, state, radio, stationPicker, dispatcher, bindings, events,
-                console, renderer, VersionProvider.version(), properties.autostartStation());
+                console, renderer, VersionProvider.version(), properties.autostartStation(), calls);
     }
 
     @Bean(destroyMethod = "close")

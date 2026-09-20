@@ -18,7 +18,8 @@ public interface Prompter {
     }
 
     /**
-     * Reads a single key press, without waiting for Enter. Keys not in {@code allowedCharacters} are ignored.
+     * Reads a single key press, without waiting for Enter. Keys not in {@code allowedCharacters} are
+     * ignored; {@code null} accepts any printable key.
      *
      * @return the key, or empty if the user pressed Enter or input ended
      */

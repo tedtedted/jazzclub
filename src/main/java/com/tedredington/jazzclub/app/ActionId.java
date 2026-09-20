@@ -19,6 +19,7 @@ public enum ActionId {
     STATION_DELETE("act_stationdelete", 'd', "delete station", Requires.STATION),
     SONG_EXPLAIN("act_songexplain", 'e', "explain why this song is played", Requires.SONG),
     STATION_ADD_GENRE("act_stationaddbygenre", 'g', "add genre station", Requires.NOTHING),
+    HISTORY("act_history", 'h', "song history", Requires.NOTHING),
     SONG_INFO("act_songinfo", 'i', "print information about song/station", Requires.SONG),
     STATION_ADD_SHARED("act_addshared", 'j', "add shared station", Requires.NOTHING),
     SONG_NEXT("act_songnext", 'n', "next song", Requires.STATION),

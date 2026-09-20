@@ -40,7 +40,10 @@ public final class EventQueuePrompter implements Prompter {
                             console.append("\n");
                             return Optional.empty();
                         }
-                        if (allowedCharacters.indexOf(key) >= 0) {
+                        boolean accepted = allowedCharacters == null
+                                ? !Character.isISOControl(key)
+                                : allowedCharacters.indexOf(key) >= 0;
+                        if (accepted) {
                             console.append(key + "\n");
                             return Optional.of(key);
                         }

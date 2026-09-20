@@ -119,6 +119,37 @@ class PlaybackStateTest {
     }
 
     @Test
+    void aSongInTheHistoryCanBeUpdatedAndLookedUpFresh() {
+        state.enqueue(List.of(a, b));
+        state.advance();
+        state.advance(); // a in history, b playing
+
+        state.updateSong(a.withRating(Rating.BAN));
+
+        assertThat(state.history()).extracting(Song::rating).containsExactly(Rating.BAN);
+        assertThat(state.song()).contains(b);
+        assertThat(state.current(a).rating()).isEqualTo(Rating.BAN);
+        assertThat(state.current(b)).isSameAs(b);
+        assertThat(state.current(c)).as("unknown songs come back unchanged").isSameAs(c);
+        assertThat(state.isPlaying(b)).isTrue();
+        assertThat(state.isPlaying(a)).isFalse();
+    }
+
+    @Test
+    void theDefaultSelectionIsWhatIsOnAir() {
+        assertThat(state.selection()).isEqualTo(Selection.NONE);
+
+        state.changeStation(EVANS);
+        state.enqueue(List.of(a));
+        state.advance();
+
+        assertThat(state.selection()).isEqualTo(new Selection(EVANS, a));
+        assertThat(state.selection().songIfAny()).contains(a);
+        assertThat(Selection.NONE.stationIfAny()).isEmpty();
+        assertThat(state.historySize()).isEqualTo(2);
+    }
+
+    @Test
     void quitIsSticky() {
         state.requestQuit();
 

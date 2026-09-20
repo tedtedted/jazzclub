@@ -14,7 +14,9 @@ import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.player.PlaybackResult;
 import com.tedredington.jazzclub.testsupport.FakeAudioPlayer;
+import com.tedredington.jazzclub.app.event.EventType;
 import com.tedredington.jazzclub.testsupport.RecordingConsole;
+import com.tedredington.jazzclub.testsupport.RecordingEvents;
 import com.tedredington.jazzclub.testsupport.StubPandoraClient;
 import com.tedredington.jazzclub.ui.Renderer;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,8 +28,9 @@ class RadioTest {
     private final FakeAudioPlayer player = new FakeAudioPlayer();
     private final PlaybackState state = new PlaybackState(5);
     private final RecordingConsole console = new RecordingConsole();
+    private final RecordingEvents events = new RecordingEvents();
     private final Radio radio = new Radio(client, player, state, console, new Renderer(FORMAT),
-            AudioQuality.MEDIUM, 3);
+            AudioQuality.MEDIUM, 3, events.on(state, player));
 
     private final Song a = song("a", "200");
     private final Song b = song("b", "200");
@@ -202,6 +205,59 @@ class RadioTest {
 
         assertThat(player.played()).hasSize(1);
         assertThat(state.song()).isEmpty();
+    }
+
+    @Test
+    void aSongsLifeIsReportedForScrobblers() {
+        client.playlists.add(List.of(a, b));
+        radio.tune(EVANS);
+
+        assertThat(events.types()).containsExactly(EventType.STATION_FETCH_PLAYLIST, EventType.SONG_START);
+        assertThat(events.last().song()).isEqualTo(a);
+        assertThat(events.last().station()).isEqualTo(EVANS);
+        assertThat(events.last().upcoming()).containsExactly(b);
+
+        long id = player.lastId();
+        player.finish();
+        radio.onTrackFinished(id, PlaybackResult.completed().withPlayed(java.time.Duration.ofSeconds(180)));
+
+        assertThat(events.types()).containsExactly(EventType.STATION_FETCH_PLAYLIST, EventType.SONG_START,
+                EventType.SONG_FINISH, EventType.SONG_START);
+        assertThat(events.all().get(2).song()).as("songfinish is about the song that ended").isEqualTo(a);
+        assertThat(events.all().get(2).played()).hasSeconds(180);
+    }
+
+    @Test
+    void aFailedPlaylistFetchIsReportedWithItsError() {
+        client.failure = new PandoraApiException(1006, null);
+
+        radio.tune(EVANS);
+
+        assertThat(events.last().type()).isEqualTo(EventType.STATION_FETCH_PLAYLIST);
+        assertThat(events.last().result().isOk()).isFalse();
+        assertThat(events.last().result().pandoraCode()).isEqualTo(1006 + 1024);
+    }
+
+    @Test
+    void quittingMidSongStillReportsItAsFinishedWithTheTimeHeard() {
+        client.playlists.add(List.of(a, b));
+        radio.tune(EVANS);
+        player.elapsed(java.time.Duration.ofSeconds(42));
+        events.clear();
+
+        radio.shutdown();
+        radio.shutdown();
+
+        assertThat(events.types()).as("once, however often shutdown is called").containsExactly(EventType.SONG_FINISH);
+        assertThat(events.last().played()).hasSeconds(42);
+        assertThat(player.stops()).isEqualTo(2);
+    }
+
+    @Test
+    void shuttingDownAnIdleRadioReportsNothing() {
+        radio.shutdown();
+
+        assertThat(events.all()).isEmpty();
     }
 
     @Test

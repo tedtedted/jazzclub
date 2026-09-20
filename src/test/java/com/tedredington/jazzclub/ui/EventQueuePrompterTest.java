@@ -122,6 +122,13 @@ class EventQueuePrompterTest {
     }
 
     @Test
+    void readCharWithoutRestrictionTakesAnyPrintableKey() {
+        type(ESCAPE, "+");
+
+        assertThat(prompter.readChar(null)).contains('+');
+    }
+
+    @Test
     void readCharTreatsEnterAsNoAnswer() {
         type(ENTER);
 

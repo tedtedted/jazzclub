@@ -51,6 +51,16 @@ class ListPickerTest {
     }
 
     @Test
+    void entriesCanBeRenderedByTheCallerAndFilteredOnOtherText() {
+        prompter.answer("trumpet", "0");
+
+        assertThat(picker.pick(ARTISTS, (index, name) -> "#" + index + " " + name.toUpperCase(),
+                name -> name.startsWith("Miles Davis") ? "trumpet" : "piano", "? ")).contains("Miles Davis");
+        assertThat(console.output()).startsWith("\t#0 MILES DAVIS\n\t#1 MILES DAVIS QUINTET\n\t#2 BILL EVANS\n")
+                .endsWith("[?] ? \t#0 MILES DAVIS\n\t#1 MILES DAVIS QUINTET\n[?] ? ");
+    }
+
+    @Test
     void recognisesIndexes() {
         assertThat(ListPicker.isIndex("0")).isTrue();
         assertThat(ListPicker.isIndex("123456")).isTrue();

@@ -2,6 +2,7 @@ package com.tedredington.jazzclub.app.action;
 
 import java.util.Set;
 
+import com.tedredington.jazzclub.app.ActionContext;
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.KeyBindings;
@@ -25,7 +26,7 @@ class HelpAction implements KeyAction {
     }
 
     @Override
-    public void execute(ActionId id) {
+    public void execute(ActionId id, ActionContext context) {
         console.append("\r");
         for (ActionId action : ActionId.values()) {
             if (action.helpText() != null) {

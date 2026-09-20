@@ -32,6 +32,7 @@ class JazzclubPropertiesTest {
             assertThat(properties.history()).isEqualTo(5);
             assertThat(properties.maxRetry()).isEqualTo(3);
             assertThat(properties.autostartStation()).isNull();
+            assertThat(properties.eventCommand()).isNull();
             assertThat(properties.ffmpeg()).isEqualTo("ffmpeg");
             assertThat(properties.format()).isEqualTo(TestData.FORMAT);
             assertThat(properties.keys()).isEmpty();

@@ -16,7 +16,10 @@ import com.tedredington.jazzclub.pandora.model.Station;
 import com.tedredington.jazzclub.pandora.model.StationSeed;
 import com.tedredington.jazzclub.player.PlaybackResult;
 import com.tedredington.jazzclub.testsupport.FakeAudioPlayer;
+import com.tedredington.jazzclub.app.event.EventType;
+import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.testsupport.RecordingConsole;
+import com.tedredington.jazzclub.testsupport.RecordingEvents;
 import com.tedredington.jazzclub.testsupport.StubPandoraClient;
 import com.tedredington.jazzclub.ui.Renderer;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +31,12 @@ class StationServiceTest {
     private final FakeAudioPlayer player = new FakeAudioPlayer();
     private final PlaybackState state = new PlaybackState(5);
     private final RecordingConsole console = new RecordingConsole();
-    private final Radio radio = new Radio(client, player, state, console, new Renderer(FORMAT), AudioQuality.HIGH, 3);
-    private final StationService service = new StationService(client, state, radio, console);
+    private final RecordingEvents events = new RecordingEvents();
+    private final PlayerEvents playerEvents = events.on(state, player);
+    private final Radio radio = new Radio(client, player, state, console, new Renderer(FORMAT), AudioQuality.HIGH, 3,
+            playerEvents);
+    private final StationService service = new StationService(client, new PandoraCalls(console, playerEvents), state,
+            radio);
 
     @BeforeEach
     void stations() {
@@ -38,7 +45,8 @@ class StationServiceTest {
 
     @Test
     void aCreatedStationAppearsInTheMenuWithoutRefetching() {
-        Station created = service.create(new StationSeed.MusicToken("R123"), "Creating station... ");
+        Station created = service.create(new StationSeed.MusicToken("R123"), "Creating station... ",
+                EventType.STATION_CREATE, Selection.NONE);
 
         assertThat(created).isEqualTo(client.created);
         assertThat(state.stations()).contains(client.created).hasSize(4);
@@ -50,7 +58,8 @@ class StationServiceTest {
     void creatingAStationThatAlreadyExistsDoesNotDuplicateIt() {
         client.created = EVANS.withName("Bill Evans Radio (again)");
 
-        service.create(new StationSeed.MusicToken("R1"), "Creating station... ");
+        service.create(new StationSeed.MusicToken("R1"), "Creating station... ", EventType.STATION_CREATE,
+                Selection.NONE);
 
         assertThat(state.stations()).hasSize(3).contains(client.created).doesNotContain(EVANS);
     }
@@ -133,10 +142,35 @@ class StationServiceTest {
     }
 
     @Test
+    void everyChangeIsAnnouncedToListenersExceptTheSilentTransform() {
+        service.create(new StationSeed.MusicToken("R1"), "Adding genre station... ", EventType.STATION_ADD_GENRE,
+                Selection.NONE);
+        service.rename(HARD_BOP, "Mine");
+        service.addMusic(EVANS, "R2");
+        service.setQuickMix(List.of(EVANS));
+        service.delete(EVANS);
+
+        assertThat(events.types()).containsExactly(EventType.STATION_ADD_GENRE, EventType.STATION_RENAME,
+                EventType.STATION_ADD_MUSIC, EventType.STATION_QUICKMIX_TOGGLE, EventType.STATION_DELETE);
+        assertThat(events.all().get(1).station().name()).as("listeners see the new name").isEqualTo("Mine");
+    }
+
+    @Test
+    void failuresAreAnnouncedTooWithTheirErrorCode() {
+        client.failure = new PandoraApiException(1005, null);
+
+        assertThatThrownBy(() -> service.rename(EVANS, "x")).isInstanceOf(PandoraApiException.class);
+
+        assertThat(events.last().type()).isEqualTo(EventType.STATION_RENAME);
+        assertThat(events.last().result().pandoraMessage()).isEqualTo("Max number of stations reached.");
+    }
+
+    @Test
     void aFailureLeavesTheLocalListUntouched() {
         client.failure = new PandoraApiException(1005, null);
 
-        assertThatThrownBy(() -> service.create(new StationSeed.MusicToken("R1"), "Creating station... "))
+        assertThatThrownBy(() -> service.create(new StationSeed.MusicToken("R1"), "Creating station... ",
+                EventType.STATION_CREATE, Selection.NONE))
                 .isInstanceOf(PandoraApiException.class);
         assertThat(state.stations()).hasSize(3);
 

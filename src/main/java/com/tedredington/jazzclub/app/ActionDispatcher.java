@@ -3,6 +3,7 @@ package com.tedredington.jazzclub.app;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.tedredington.jazzclub.pandora.error.PandoraException;
 import com.tedredington.jazzclub.ui.Console;
@@ -37,23 +38,31 @@ public final class ActionDispatcher {
         }
     }
 
-    public void dispatch(char key) {
-        bindings.actionFor(key).filter(this::applicable).ifPresent(id -> {
+    /** A key press during normal play: applies to whatever is on air. */
+    public Optional<ActionId> dispatch(char key) {
+        return dispatch(key, state.selection());
+    }
+
+    /** @return the action that ran, or empty if the key is unbound or needs something the selection lacks */
+    public Optional<ActionId> dispatch(char key, Selection selection) {
+        Optional<ActionId> action = bindings.actionFor(key).filter(id -> applicable(id, selection));
+        action.ifPresent(id -> {
             try {
-                actions.get(id).execute(id);
+                actions.get(id).execute(id, new ActionContext(selection, this::dispatch));
             } catch (PandoraException e) {
                 // the action has typically printed "(i) Doing something... " already
                 log.debug("{} failed", id, e);
                 console.append("Error: " + e.getMessage() + "\n");
             }
         });
+        return action;
     }
 
-    private boolean applicable(ActionId id) {
+    private static boolean applicable(ActionId id, Selection selection) {
         return switch (id.requires()) {
             case NOTHING -> true;
-            case STATION -> state.station().isPresent();
-            case SONG -> state.song().isPresent();
+            case STATION -> selection.station() != null;
+            case SONG -> selection.song() != null;
         };
     }
 }

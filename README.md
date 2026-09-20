@@ -108,6 +108,7 @@ jazzclub is controlled with single key presses while it plays. No Enter needed.
 | `e` | explain why this song is played | `act_songexplain` |
 | `i` | print information about song/station | `act_songinfo` |
 | `u` | upcoming songs | `act_upcoming` |
+| `h` | song history | `act_history` |
 | `b` | bookmark song/artist | `act_bookmark` |
 | `v` | create new station from song or artist | `act_stationcreatefromsong` |
 | **Stations** | | |
@@ -132,6 +133,14 @@ The station list is sorted by name. At the `Select station:` prompt you can
 
 The letters in front of a name mean: `q` the station is part of your QuickMix, `Q` it *is* the
 QuickMix, `S` it was shared with you by somebody else.
+
+### Song history
+
+`h` lists the songs that played before the current one. Pick one, and jazzclub asks `What to do with
+this song?`. Press any song key: `+` to love it after all, `-` or `t` to get rid of it, `b` to
+bookmark it, `v` to make a station from it, `e` to have it explained. The key applies to the song you
+picked and the station it came from, not to what is playing; banning a past song does not skip the
+current one. `history = 0` in the config turns the history off.
 
 ### Creating and editing stations
 
@@ -186,6 +195,7 @@ act_songban = disabled
 | `gain_mul` | `1.0` | How much of Pandora's per-track loudness correction to apply; `0.0` turns it off. |
 | `autostart_station` | | Station id to play right away. Press `i` to see the id of the current station. |
 | `history` | `5` | How many played songs to remember. |
+| `event_command` | | A program to run on every event, see [Event scripts](#event-scripts). |
 | `max_retry` | `3` | Playback failures in a row before jazzclub stops the station. |
 | `timeout` | `30` | Network timeout in seconds. |
 | `act_*` | see [Keys](#keys) | A single character, or `disabled`. |
@@ -205,6 +215,65 @@ ANSI colour codes work inside format strings, exactly as in pianobar.
 The connection settings `rpc_host`, `rpc_tls_port`, `partner_user`, `partner_password`, `device`,
 `encrypt_password` and `decrypt_password` are supported too and default to pianobar's values. You
 will not normally need them.
+
+### Event scripts
+
+jazzclub can tell a program of yours about everything that happens: to scrobble to Last.fm, to pop
+up a desktop notification, to log what you listened to. The interface is pianobar's, so scripts
+written for pianobar work unchanged, including the examples in its
+[contrib/eventcmd-examples](https://codeberg.org/purplesym/pianobar/src/branch/master/contrib/eventcmd-examples).
+
+```ini
+event_command = ~/.config/jazzclub/eventcmd
+```
+
+The program is started with the event name as its only argument and gets the details on standard
+input, one `key=value` per line:
+
+```
+stationName=Bill Evans Radio
+songStationName=
+pRet=1
+pRetStr=Everything is fine :)
+wRet=0
+wRetStr=No error
+songPlayed=399
+artist=Bill Evans
+title=Peace Piece
+album=Everybody Digs Bill Evans
+coverArt=https://...
+rating=1
+detailUrl=https://...
+songDuration=401
+stationCount=24
+station0=...
+```
+
+`songPlayed` and `songDuration` are seconds. `rating` is `0` none, `1` loved, `2` banned, `3` tired.
+`pRet=1` and `wRet=0` mean the operation succeeded. Upcoming songs follow as `artistNext0=`,
+`titleNext0=` and so on.
+
+Events: `songstart`, `songfinish`, `songlove`, `songban`, `songshelf`, `songexplain`, `songbookmark`,
+`artistbookmark`, `stationcreate`, `stationaddgenre`, `stationaddshared`, `stationaddmusic`,
+`stationrename`, `stationdelete`, `stationquickmixtoggle`, `stationfetchplaylist`,
+`stationfetchgenre`, `usergetstations`, `userlogin`.
+
+A notification on every new song, for macOS:
+
+```sh
+#!/bin/sh
+[ "$1" = songstart ] || exit 0
+while IFS='=' read -r key value; do
+    case "$key" in title) title=$value ;; artist) artist=$value ;; esac
+done
+osascript -e "display notification \"$artist\" with title \"$title\""
+```
+
+On Linux replace the last line with `notify-send "$title" "$artist"`. Remember `chmod +x`.
+
+Two differences from pianobar, both deliberate: scripts run in the background, one at a time and in
+order, so a slow scrobbler never delays the music or a key press; and their output is discarded
+rather than printed into the player. A script that runs longer than 30 seconds is killed.
 
 ### Keeping your password out of the config file
 
@@ -262,8 +331,8 @@ Run `jazzclub -vv` and look at what it logs. Auth tokens and your password are n
 
 jazzclub 0.1 covers listening, rating, and creating and managing stations. Not there yet:
 
-- song history (`h`), managing a station's seeds and feedback (`=`), account settings (`!`)
-- `event_command` and the remote-control `fifo`
+- managing a station's seeds and feedback (`=`), account settings (`!`)
+- the remote-control `fifo`
 - `proxy`, `control_proxy`, `bind_to`, `ca_bundle`, `sort`, `audio_pipe`, `sample_rate`
 
 Deliberately different:

@@ -38,7 +38,10 @@ public final class ScriptedPrompter implements Prompter {
     public Optional<Character> readChar(String allowedCharacters) {
         prompts++;
         String next = answers.pollFirst();
-        if (next == null || next.length() != 1 || allowedCharacters.indexOf(next.charAt(0)) < 0) {
+        if (next == null || next.length() != 1) {
+            return Optional.empty();
+        }
+        if (allowedCharacters != null && allowedCharacters.indexOf(next.charAt(0)) < 0) {
             return Optional.empty();
         }
         return Optional.of(next.charAt(0));

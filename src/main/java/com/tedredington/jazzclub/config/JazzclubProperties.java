@@ -18,6 +18,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param history          {@code history}: how many played songs to remember
  * @param maxRetry         {@code max_retry}: consecutive playback failures before the station is stopped
  * @param autostartStation {@code autostart_station}: station id to play without asking
+ * @param eventCommand     {@code event_command}: executable run for every player event
  * @param ffmpeg           name or path of the ffmpeg executable
  * @param keys             {@code act_*} overrides, keyed by pianobar's config key
  */
@@ -31,6 +32,7 @@ public record JazzclubProperties(
         @DefaultValue("5") int history,
         @DefaultValue("3") int maxRetry,
         String autostartStation,
+        String eventCommand,
         @DefaultValue("ffmpeg") String ffmpeg,
         @DefaultValue Format format,
         @DefaultValue Map<String, String> keys) {

@@ -65,9 +65,10 @@ class StreamingAudioPlayerTest {
             drained = true;
         }
 
+        /** Like a real SourceDataLine: the position is gone once the line is closed. */
         @Override
         public Duration position() {
-            return Duration.ofMillis(bytesWritten.get());
+            return closed ? Duration.ZERO : Duration.ofMillis(bytesWritten.get());
         }
 
         @Override
@@ -138,7 +139,11 @@ class StreamingAudioPlayerTest {
 
         long id = player.play(URL, -6.0);
 
-        assertThat(awaitFinished()).isEqualTo(new Finished(id, PlaybackResult.completed()));
+        Finished end = awaitFinished();
+        assertThat(end.id()).isEqualTo(id);
+        assertThat(end.result().outcome()).isEqualTo(PlaybackResult.Outcome.COMPLETED);
+        // the fake sink reports one millisecond per byte
+        assertThat(end.result().played()).isEqualTo(Duration.ofMillis(40_000));
         assertThat(sink.bytesWritten.get()).isEqualTo(40_000);
         assertThat(sink.drained).isTrue();
         assertThat(sink.closed).isTrue();
@@ -160,7 +165,9 @@ class StreamingAudioPlayerTest {
 
         player().play(URL, 0);
 
-        assertThat(awaitFinished().result()).isEqualTo(PlaybackResult.failed("Decoding failed: 403 Forbidden"));
+        PlaybackResult result = awaitFinished().result();
+        assertThat(result.outcome()).isEqualTo(PlaybackResult.Outcome.FAILED);
+        assertThat(result.detail()).isEqualTo("Decoding failed: 403 Forbidden");
         assertThat(sink.drained).isFalse();
     }
 
@@ -193,6 +200,7 @@ class StreamingAudioPlayerTest {
         player().play(URL, 0);
 
         assertThat(awaitFinished().result()).isEqualTo(PlaybackResult.failed("Invalid song url."));
+        // nothing was heard
     }
 
     @Test
@@ -222,7 +230,10 @@ class StreamingAudioPlayerTest {
 
         player.stop();
 
-        assertThat(awaitFinished()).isEqualTo(new Finished(id, PlaybackResult.stopped()));
+        Finished end = awaitFinished();
+        assertThat(end.id()).isEqualTo(id);
+        assertThat(end.result().outcome()).isEqualTo(PlaybackResult.Outcome.STOPPED);
+        assertThat(end.result().played()).as("a scrobbler needs to know how much was heard").isPositive();
         assertThat(decoder.closed).isTrue();
         assertThat(sink.closed).isTrue();
     }
@@ -251,7 +262,7 @@ class StreamingAudioPlayerTest {
         player.setPaused(false);
         source.close();
 
-        assertThat(awaitFinished().result()).isEqualTo(PlaybackResult.completed());
+        assertThat(awaitFinished().result().outcome()).isEqualTo(PlaybackResult.Outcome.COMPLETED);
         assertThat(sink.bytesWritten.get()).isEqualTo(1200);
         assertThat(whilePaused).isLessThan(1200);
         assertThat(sink.pauses).containsExactly(true, false);
@@ -312,8 +323,8 @@ class StreamingAudioPlayerTest {
         long second = player.play(URL, 0);
 
         List<Finished> results = List.of(awaitFinished(), awaitFinished());
-        assertThat(results).containsExactlyInAnyOrder(
-                new Finished(first, PlaybackResult.stopped()), new Finished(second, PlaybackResult.completed()));
+        assertThat(results).extracting(f -> f.id() + " " + f.result().outcome())
+                .containsExactlyInAnyOrder(first + " STOPPED", second + " COMPLETED");
         assertThat(second).isGreaterThan(first);
     }
 

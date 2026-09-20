@@ -3,6 +3,7 @@ package com.tedredington.jazzclub.app;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import com.tedredington.jazzclub.ui.Console;
@@ -25,20 +26,28 @@ public final class ListPicker {
 
     /** @param label what to show, and what the filter is matched against */
     public <T> Optional<T> pick(List<T> items, Function<T, String> label, String prompt) {
+        return pick(items, (index, item) -> "%2d) %s".formatted(index, label.apply(item)), label, prompt);
+    }
+
+    /**
+     * @param line       renders a whole entry including its number, for lists with a user-defined format
+     * @param filterText what the filter is matched against
+     */
+    public <T> Optional<T> pick(List<T> items, BiFunction<Integer, T, String> line, Function<T, String> filterText,
+                                String prompt) {
         String filter = "";
         while (true) {
             for (int i = 0; i < items.size(); i++) {
-                String text = label.apply(items.get(i));
-                if (text.toLowerCase(Locale.ROOT).contains(filter)) {
-                    console.list("%2d) %s\n".formatted(i, text));
+                if (filterText.apply(items.get(i)).toLowerCase(Locale.ROOT).contains(filter)) {
+                    console.list(line.apply(i, items.get(i)) + "\n");
                 }
             }
             console.print(MessageType.QUESTION, prompt);
-            Optional<String> line = prompter.readLine();
-            if (line.isEmpty()) {
+            Optional<String> answer = prompter.readLine();
+            if (answer.isEmpty()) {
                 return Optional.empty();
             }
-            String input = line.get().strip();
+            String input = answer.get().strip();
             if (isIndex(input) && Integer.parseInt(input) < items.size()) {
                 return Optional.of(items.get(Integer.parseInt(input)));
             }

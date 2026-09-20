@@ -2,6 +2,9 @@ package com.tedredington.jazzclub.app;
 
 import java.util.List;
 
+import com.tedredington.jazzclub.app.event.EventResult;
+import com.tedredington.jazzclub.app.event.EventType;
+import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.error.PandoraException;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
@@ -28,12 +31,14 @@ public final class Radio {
     private final Renderer renderer;
     private final AudioQuality quality;
     private final int maxRetry;
+    private final PlayerEvents events;
 
     private long playbackId = NOTHING_PLAYING;
     private int consecutiveFailures;
 
     public Radio(PandoraClient client, AudioPlayer player, PlaybackState state, Console console, Renderer renderer,
-                 AudioQuality quality, int maxRetry) {
+                 AudioQuality quality, int maxRetry, PlayerEvents events) {
+        this.events = events;
         this.client = client;
         this.player = player;
         this.state = state;
@@ -76,6 +81,7 @@ public final class Radio {
             return;
         }
         playbackId = NOTHING_PLAYING;
+        events.emit(EventType.SONG_FINISH, state.selection(), EventResult.OK, result.played());
         switch (result.outcome()) {
             case COMPLETED -> consecutiveFailures = 0;
             case STOPPED -> { }
@@ -104,6 +110,19 @@ public final class Radio {
         Station realStation = playing.quickMix() ? state.findStation(song.stationId()).orElse(null) : null;
         console.print(MessageType.PLAYING, renderer.nowPlayingSong(song, realStation) + "\n");
         playbackId = player.play(song.audioUrl(), song.gainDb());
+        events.emit(EventType.SONG_START, state.selection(), EventResult.OK);
+    }
+
+    /**
+     * The program is ending. The player's own end-of-track event will arrive after the main loop has
+     * gone, so the song that is cut short is reported here; scrobblers decide on "songfinish".
+     */
+    public void shutdown() {
+        if (playbackId != NOTHING_PLAYING) {
+            playbackId = NOTHING_PLAYING;
+            events.emit(EventType.SONG_FINISH, state.selection(), EventResult.OK, player.elapsed());
+        }
+        player.stop();
     }
 
     private boolean fetchPlaylist() {
@@ -114,10 +133,12 @@ public final class Radio {
         } catch (PandoraException e) {
             log.debug("Fetching the playlist failed", e);
             console.append("Error: " + e.getMessage() + "\n");
+            events.emit(EventType.STATION_FETCH_PLAYLIST, state.selection(), EventResult.of(e));
             state.clearStation();
             return false;
         }
         console.append("Ok.\n");
+        events.emit(EventType.STATION_FETCH_PLAYLIST, state.selection(), EventResult.OK);
         if (songs.isEmpty()) {
             console.info("No tracks left.\n");
             state.clearStation();

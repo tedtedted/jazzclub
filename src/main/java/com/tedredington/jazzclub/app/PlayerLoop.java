@@ -2,6 +2,7 @@ package com.tedredington.jazzclub.app;
 
 import java.util.Optional;
 
+import com.tedredington.jazzclub.app.event.EventType;
 import com.tedredington.jazzclub.credentials.CredentialsException;
 import com.tedredington.jazzclub.credentials.CredentialsProvider;
 import com.tedredington.jazzclub.event.Event;
@@ -37,11 +38,13 @@ public final class PlayerLoop {
     private final Renderer renderer;
     private final String version;
     private final String autostartStation;
+    private final PandoraCalls calls;
 
     public PlayerLoop(CredentialsProvider credentials, PandoraClient client, AudioPlayer player, PlaybackState state,
                       Radio radio, StationPicker stationPicker, ActionDispatcher dispatcher, KeyBindings bindings,
                       EventQueue events, Console console, Renderer renderer, String version,
-                      String autostartStation) {
+                      String autostartStation, PandoraCalls calls) {
+        this.calls = calls;
         this.credentials = credentials;
         this.client = client;
         this.player = player;
@@ -74,7 +77,7 @@ public final class PlayerLoop {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
-            player.stop();
+            radio.shutdown();
             console.append("\n");
         }
         return EXIT_OK;
@@ -83,12 +86,9 @@ public final class PlayerLoop {
     private boolean signIn() {
         try {
             var login = credentials.credentials();
-            console.info("Login... ");
-            client.login(login);
-            console.append("Ok.\n");
-            console.info("Get stations... ");
-            state.stations(client.stations());
-            console.append("Ok.\n");
+            calls.run("Login... ", EventType.USER_LOGIN, Selection.NONE, () -> client.login(login));
+            calls.run("Get stations... ", EventType.USER_GET_STATIONS, Selection.NONE,
+                    () -> state.stations(client.stations()));
             return true;
         } catch (CredentialsException e) {
             log.debug("No usable credentials", e);

@@ -2,9 +2,11 @@ package com.tedredington.jazzclub.app.action;
 
 import java.util.Set;
 
+import com.tedredington.jazzclub.app.ActionContext;
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.PlaybackState;
+import com.tedredington.jazzclub.app.Selection;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
 import com.tedredington.jazzclub.ui.Console;
@@ -32,17 +34,17 @@ class SongInfoAction implements KeyAction {
     }
 
     @Override
-    public void execute(ActionId id) {
+    public void execute(ActionId id, ActionContext context) {
         if (id == ActionId.SONG_INFO) {
-            printInfo();
+            printInfo(context.selection());
         } else {
             printUpcoming();
         }
     }
 
-    private void printInfo() {
-        Song song = state.song().orElseThrow();
-        state.station().ifPresent(station -> {
+    private void printInfo(Selection selection) {
+        Song song = state.current(selection.song());
+        selection.stationIfAny().ifPresent(station -> {
             console.print(MessageType.PLAYING, renderer.nowPlayingStation(station) + "\n");
             Station realStation = station.quickMix() ? state.findStation(song.stationId()).orElse(null) : null;
             console.print(MessageType.PLAYING, renderer.nowPlayingSong(song, realStation) + "\n");

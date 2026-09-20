@@ -122,6 +122,8 @@ public final class StreamingAudioPlayer implements AudioPlayer {
         private volatile boolean stopRequested;
         private volatile Decoder decoder;
         private volatile AudioSink sink;
+        /** Remembered before the sink is closed; a closed sound card line reports position zero. */
+        private volatile Duration positionAtStop = Duration.ZERO;
 
         Playback(long id, URI audioUrl, double trackGainDb) {
             this.id = id;
@@ -132,6 +134,7 @@ public final class StreamingAudioPlayer implements AudioPlayer {
         @Override
         public void run() {
             PlaybackResult result;
+            Duration played = Duration.ZERO;
             try {
                 result = pump();
             } catch (IOException | RuntimeException e) {
@@ -141,8 +144,11 @@ public final class StreamingAudioPlayer implements AudioPlayer {
                 Thread.currentThread().interrupt();
                 result = PlaybackResult.stopped();
             } finally {
+                Duration atEnd = position();
+                played = atEnd.compareTo(positionAtStop) > 0 ? atEnd : positionAtStop;
                 release();
             }
+            result = result.withPlayed(played);
             synchronized (lock) {
                 if (current == this) {
                     current = null;
@@ -196,6 +202,7 @@ public final class StreamingAudioPlayer implements AudioPlayer {
         }
 
         void requestStop() {
+            positionAtStop = position();
             stopRequested = true;
             synchronized (lock) {
                 lock.notifyAll();

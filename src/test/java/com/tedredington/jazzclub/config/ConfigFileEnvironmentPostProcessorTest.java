@@ -115,13 +115,13 @@ class ConfigFileEnvironmentPostProcessorTest {
 
     @Test
     void unsupportedKeysAreIgnored() throws IOException {
-        writeXdgConfig("act_history = h\nevent_command = /bin/true\n");
+        writeXdgConfig("act_managestation = =\nfifo = /tmp/ctl\n");
 
         postProcess();
 
-        assertThat(environment.getProperty("act_history")).isNull();
-        assertThat(environment.getProperty("jazzclub.keys[act_history]")).isNull();
-        assertThat(environment.getProperty("event_command")).isNull();
+        assertThat(environment.getProperty("act_managestation")).isNull();
+        assertThat(environment.getProperty("jazzclub.keys[act_managestation]")).isNull();
+        assertThat(environment.getProperty("fifo")).isNull();
     }
 
     @Test
