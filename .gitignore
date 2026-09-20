@@ -4,6 +4,9 @@ target/
 hs_err_pid*.log
 replay_pid*.log
 
+### Release packaging (.github/scripts/package.sh) ###
+/dist/
+
 ### Maven ###
 !.mvn/wrapper/maven-wrapper.jar
 dependency-reduced-pom.xml

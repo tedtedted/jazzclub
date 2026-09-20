@@ -42,8 +42,15 @@ The expected flow is:
    git push origin v0.1.0
    ```
 
-5. The release workflow builds native binaries, smoke tests them, packages them, creates checksums,
-   and publishes a GitHub release.
+5. The release workflow refuses a tag whose commit is not on `main`, runs the tests, builds native
+   binaries with the tag's version baked in, smoke tests them with `scripts/smoke-test.sh` (the same
+   script CI uses), packages them, creates checksums, and publishes a GitHub release.
+
+To rehearse all of that without publishing, run the workflow by hand; the publish job is skipped:
+
+```sh
+gh workflow run release.yml --ref <branch> -f version=0.0.0-test
+```
 
 ## Release artifacts
 
@@ -54,8 +61,13 @@ Each release publishes:
 - macOS archive: `jazzclub-<version>-macos-<arch>.tar.gz`
 - `SHA256SUMS` files for each package build
 
-The packages install only jazzclub itself. `ffmpeg` remains a runtime dependency supplied by the
-operating system package manager.
+The packages install jazzclub, its documentation and bash completion. Runtime dependencies are left to
+the operating system's package manager and declared in the packages: `ffmpeg`, and on Linux the ALSA
+library (`libasound2` on Debian, `alsa-lib` on Arch), which the Java Sound code inside the binary loads.
+
+The Linux binaries are built on Ubuntu 22.04 on purpose. A binary only starts on a glibc at least as
+new as the one it was linked against, and 22.04's glibc 2.35 is older than Debian 12's 2.36. Moving the
+build to a newer runner silently drops Debian stable; the smoke test prints the glibc each binary needs.
 
 ## Later hardening
 
