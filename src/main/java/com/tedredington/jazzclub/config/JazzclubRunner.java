@@ -3,6 +3,7 @@ package com.tedredington.jazzclub.config;
 import java.util.concurrent.ScheduledExecutorService;
 
 import com.tedredington.jazzclub.app.PlayerLoop;
+import com.tedredington.jazzclub.remote.ControlFifo;
 import com.tedredington.jazzclub.terminal.TerminalSession;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationArguments;
@@ -22,11 +23,13 @@ class JazzclubRunner implements ApplicationRunner, ExitCodeGenerator {
     private final ObjectProvider<PlayerLoop> playerLoop;
     private final ObjectProvider<TerminalSession> terminalSession;
     private final ObjectProvider<ScheduledExecutorService> ticker;
+    private final ObjectProvider<ControlFifo> controlFifo;
     private int exitCode;
 
     JazzclubRunner(JazzclubProperties properties, ObjectProvider<PlayerLoop> playerLoop,
                    ObjectProvider<TerminalSession> terminalSession,
-                   ObjectProvider<ScheduledExecutorService> ticker) {
+                   ObjectProvider<ScheduledExecutorService> ticker, ObjectProvider<ControlFifo> controlFifo) {
+        this.controlFifo = controlFifo;
         this.properties = properties;
         this.playerLoop = playerLoop;
         this.terminalSession = terminalSession;
@@ -39,6 +42,7 @@ class JazzclubRunner implements ApplicationRunner, ExitCodeGenerator {
             return;
         }
         terminalSession.getObject().open();
+        controlFifo.getObject().open();
         ticker.getObject();
         exitCode = playerLoop.getObject().run();
     }

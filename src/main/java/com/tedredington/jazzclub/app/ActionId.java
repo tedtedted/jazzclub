@@ -33,12 +33,14 @@ public enum ActionId {
     BOOKMARK("act_bookmark", 'b', "bookmark song/artist", Requires.SONG),
     VOLUME_DOWN("act_voldown", '(', "decrease volume", Requires.NOTHING),
     VOLUME_UP("act_volup", ')', "increase volume", Requires.NOTHING),
+    STATION_MANAGE("act_managestation", '=', "manage station seeds/feedback/mode", Requires.STATION),
     SONG_PAUSE_TOGGLE_2("act_songpausetoggle2", ' ', null, Requires.STATION),
     STATION_CREATE_FROM_SONG("act_stationcreatefromsong", 'v', "create new station from song or artist",
             Requires.SONG),
     SONG_PLAY("act_songplay", 'P', "resume playback", Requires.STATION),
     SONG_PAUSE("act_songpause", 'S', "pause playback", Requires.STATION),
-    VOLUME_RESET("act_volreset", '^', "reset volume", Requires.NOTHING);
+    VOLUME_RESET("act_volreset", '^', "reset volume", Requires.NOTHING),
+    SETTINGS("act_settings", '!', "change settings", Requires.NOTHING);
 
     /** What must be selected for the action to make sense; otherwise the key press is ignored. */
     public enum Requires {

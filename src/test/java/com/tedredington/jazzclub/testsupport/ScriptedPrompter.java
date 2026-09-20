@@ -15,6 +15,7 @@ public final class ScriptedPrompter implements Prompter {
 
     private final Deque<String> answers = new ArrayDeque<>();
     private int prompts;
+    private int secretsAsked;
 
     public ScriptedPrompter answer(String... lines) {
         answers.addAll(List.of(lines));
@@ -32,6 +33,16 @@ public final class ScriptedPrompter implements Prompter {
             return Optional.empty();
         }
         return Optional.of(next);
+    }
+
+    @Override
+    public Optional<String> readSecret() {
+        secretsAsked++;
+        return readLine(null);
+    }
+
+    public int secretsAsked() {
+        return secretsAsked;
     }
 
     @Override

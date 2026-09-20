@@ -36,8 +36,9 @@ Nothing else. The binary contains everything it needs; no Java installation is r
 
 ## Install
 
-Packages for Homebrew, the AUR and Debian are planned. Until then, build from source (see
-[Building](#building)) and put the binary somewhere on your `PATH`:
+GitHub releases publish native packages for Debian-family Linux, Arch Linux and macOS. Until the
+first release is cut, build from source (see [Building](#building)) and put the binary somewhere on
+your `PATH`:
 
 ```sh
 install -m 755 target/jazzclub ~/.local/bin/jazzclub
@@ -120,6 +121,9 @@ jazzclub is controlled with single key presses while it plays. No Enter needed.
 | `r` | rename station | `act_stationrename` |
 | `d` | delete station | `act_stationdelete` |
 | `x` | select quickmix stations | `act_stationselectquickmix` |
+| `=` | manage station seeds/feedback/mode | `act_managestation` |
+| **Account** | | |
+| `!` | change settings | `act_settings` |
 
 `Ctrl-C` quits as well.
 
@@ -142,6 +146,14 @@ bookmark it, `v` to make a station from it, `e` to have it explained. The key ap
 picked and the station it came from, not to what is playing; banning a past song does not skip the
 current one. `history = 0` in the config turns the history off.
 
+### Account settings
+
+`!` shows your Pandora user name and whether the explicit content filter is on, and lets you change
+them and your password. Enter a number to change a setting, an empty line when you are done; all
+changes are sent together. A new password is not shown while you type it. jazzclub carries on with
+the new login for the rest of the session, but it cannot edit your config file: update `user`,
+`password` or whatever `password_command` reads yourself, or the next start will fail to log in.
+
 ### Creating and editing stations
 
 `c` asks for an artist or a song title, searches Pandora and lets you pick a match. If both artists
@@ -156,6 +168,11 @@ explicit `y`.
 
 `x` edits your QuickMix and only works while QuickMix itself is playing. Pick stations to toggle
 their `q` flag; `a` selects all, `n` none, `t` inverts. An empty line saves.
+
+`=` lets you undo what shaped the playing station. It offers only what the station has: delete an
+`[a]rtist` or `[s]ong` seed, take back a thumbs up or down under `[f]eedback`, or switch the station's
+`[m]ode` (Pandora's "Deep Cuts", "Discovery", "Crowd Faves" and so on). After a mode change the queue
+is dropped and the next song already follows the new mode.
 
 A station shared by somebody else is read-only. The first time you rate a song on it or edit it,
 jazzclub turns it into your own copy (`Transforming station...`), exactly as pianobar does.
@@ -196,6 +213,7 @@ act_songban = disabled
 | `autostart_station` | | Station id to play right away. Press `i` to see the id of the current station. |
 | `history` | `5` | How many played songs to remember. |
 | `event_command` | | A program to run on every event, see [Event scripts](#event-scripts). |
+| `fifo` | `~/.config/jazzclub/ctl` | Named pipe for [remote control](#remote-control). |
 | `max_retry` | `3` | Playback failures in a row before jazzclub stops the station. |
 | `timeout` | `30` | Network timeout in seconds. |
 | `act_*` | see [Keys](#keys) | A single character, or `disabled`. |
@@ -275,6 +293,31 @@ Two differences from pianobar, both deliberate: scripts run in the background, o
 order, so a slow scrobbler never delays the music or a key press; and their output is discarded
 rather than printed into the player. A script that runs longer than 30 seconds is killed.
 
+### Remote control
+
+jazzclub can be driven from outside through a named pipe: whatever is written to it is treated
+exactly as if you had typed it. That is enough for media keys, a window manager binding, a status bar
+button, or a script. Create the pipe once:
+
+```sh
+mkfifo ~/.config/jazzclub/ctl
+```
+
+jazzclub says `Control fifo at ... opened` on start. Then, from anywhere:
+
+```sh
+echo -n p > ~/.config/jazzclub/ctl        # pause or resume
+echo -n n > ~/.config/jazzclub/ctl        # next song
+echo -n + > ~/.config/jazzclub/ctl        # love this song
+printf 's12\n' > ~/.config/jazzclub/ctl   # change to station 12: "s", the number, Enter
+```
+
+Use `echo -n` or `printf`: a trailing newline is a key press too, harmless after a command but it
+answers the next prompt with an empty line. The characters are your key bindings, so if you rebound
+`act_songnext`, send the new key. jazzclub never creates the pipe itself and refuses a path that is
+not a pipe. Keep it somewhere only you can write to; anyone who can write to it controls your player
+and, through `!`, your account settings.
+
 ### Keeping your password out of the config file
 
 `password_command` runs through `/bin/sh` with your terminal attached, so tools that ask for a
@@ -329,10 +372,8 @@ Run `jazzclub -vv` and look at what it logs. Auth tokens and your password are n
 
 ## Differences from pianobar
 
-jazzclub 0.1 covers listening, rating, and creating and managing stations. Not there yet:
+jazzclub 0.1 has all of pianobar's keys except the debug dump (`$`). Not there yet:
 
-- managing a station's seeds and feedback (`=`), account settings (`!`)
-- the remote-control `fifo`
 - `proxy`, `control_proxy`, `bind_to`, `ca_bundle`, `sort`, `audio_pipe`, `sample_rate`
 
 Deliberately different:
@@ -357,8 +398,23 @@ sdk env install        # installs the JDK pinned in .sdkmanrc
 not need Maven installed. `./mvnw verify` runs the tests and fails below 80 % line coverage.
 `./mvnw package` builds a regular `target/jazzclub.jar` that runs on any Java 25 with `java -jar`.
 
-Every push is tested and compiled to native binaries for Linux by
-[GitHub Actions](.github/workflows/ci.yml); the binaries are attached to the workflow run.
+Every push is tested by [GitHub Actions](.github/workflows/ci.yml). Release tags run the
+[release workflow](.github/workflows/release.yml), which builds native binaries, smoke-tests them,
+packages them for Debian, Arch Linux and macOS, writes checksums and publishes a GitHub release.
+
+## Releasing
+
+jazzclub releases use SemVer tags. Normal code changes land through branches or worktrees into
+`main`; packages are only published from immutable tags:
+
+```sh
+git tag -a v0.1.0 -m "jazzclub 0.1.0"
+git push origin v0.1.0
+```
+
+Use `MAJOR` for incompatible config, CLI, packaging or behavior changes, `MINOR` for compatible
+features, and `PATCH` for compatible fixes. See [docs/release.md](docs/release.md) for the branch,
+versioning and CI/CD policy.
 
 ## Licence
 

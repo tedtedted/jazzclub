@@ -33,6 +33,12 @@ class RendererTest {
     }
 
     @Test
+    void ratingIconsAreAvailableOnTheirOwn() {
+        assertThat(renderer.ratingIcon(Rating.LOVE)).isEqualTo(" <3");
+        assertThat(renderer.ratingIcon(Rating.NONE)).isEmpty();
+    }
+
+    @Test
     void quickMixNamesTheStationTheSongCameFrom() {
         assertThat(renderer.nowPlayingSong(song, EVANS)).endsWith("\" @ Bill Evans Radio");
     }

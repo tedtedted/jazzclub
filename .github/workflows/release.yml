@@ -1,0 +1,166 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build, without the leading v
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: '25.0.2'
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid SemVer release version: $version" >&2
+            exit 1
+          fi
+
+          prerelease=false
+          if [[ "$version" == *-* ]]; then
+            prerelease=true
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Tests and coverage
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: graalvm-community
+          cache: maven
+
+      - name: Verify
+        run: ./mvnw -B -ntp -Drevision=${{ needs.version.outputs.version }} verify
+
+  package:
+    name: Package (${{ matrix.package }})
+    needs: [version, test]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: deb-amd64
+            runner: ubuntu-24.04
+            os: linux
+            deb_arch: amd64
+            arch_arch: x86_64
+          - package: deb-arm64
+            runner: ubuntu-24.04-arm
+            os: linux
+            deb_arch: arm64
+            arch_arch: aarch64
+          - package: macos
+            runner: macos-latest
+            os: macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: graalvm-community
+          cache: maven
+
+      - name: Install packaging tools
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y zstd
+
+      - name: Build native binary
+        run: ./mvnw -B -ntp -Pnative -DskipTests -Drevision=${{ needs.version.outputs.version }} native:compile
+
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          ./target/jazzclub --version | grep -F "jazzclub ${{ needs.version.outputs.version }}"
+          ./target/jazzclub --help | grep -q -- '--verbose'
+
+      - name: Build Linux packages
+        if: matrix.os == 'linux'
+        shell: bash
+        run: |
+          scripts/package-deb.sh "${{ needs.version.outputs.version }}" "${{ matrix.deb_arch }}" target/jazzclub dist
+          scripts/package-arch.sh "${{ needs.version.outputs.version }}" "${{ matrix.arch_arch }}" target/jazzclub dist
+
+      - name: Build macOS package
+        if: matrix.os == 'macos'
+        shell: bash
+        run: scripts/package-macos.sh "${{ needs.version.outputs.version }}" "$(uname -m)" target/jazzclub dist
+
+      - name: Checksums
+        shell: bash
+        run: |
+          cd dist
+          shasum -a 256 * > SHA256SUMS-${{ matrix.package }}
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.package }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish GitHub release
+    needs: [version, package]
+    runs-on: ubuntu-24.04
+    if: github.event_name != 'workflow_dispatch'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: packages-*
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          prerelease_flag=()
+          if [[ "${{ needs.version.outputs.prerelease }}" == "true" ]]; then
+            prerelease_flag=(--prerelease)
+          fi
+
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "jazzclub ${{ needs.version.outputs.version }}" \
+            --generate-notes \
+            "${prerelease_flag[@]}"

@@ -13,12 +13,13 @@
 
     <groupId>com.tedredington</groupId>
     <artifactId>jazzclub</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <name>jazzclub</name>
     <description>Console client for Pandora, a Java port of pianobar</description>
 
     <properties>
         <java.version>25</java.version>
+        <revision>0.1.0-SNAPSHOT</revision>
         <jline.version>4.4.5</jline.version>
         <picocli.version>4.7.7</picocli.version>
         <jacoco.version>0.8.15</jacoco.version>

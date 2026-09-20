@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.tedredington.jazzclub.config.JazzclubProperties;
+import com.tedredington.jazzclub.pandora.model.Rating;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
 
@@ -67,7 +68,12 @@ public final class Renderer {
     }
 
     private String ratingIcon(Song song) {
-        return switch (song.rating()) {
+        return ratingIcon(song.rating());
+    }
+
+    /** The user's {@code love_icon}, {@code ban_icon} or {@code tired_icon}; empty for unrated. */
+    public String ratingIcon(Rating rating) {
+        return switch (rating) {
             case LOVE -> format.loveIcon();
             case BAN -> format.banIcon();
             case TIRED -> format.tiredIcon();

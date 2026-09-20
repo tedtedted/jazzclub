@@ -38,9 +38,15 @@ public final class ActionDispatcher {
         }
     }
 
-    /** A key press during normal play: applies to whatever is on air. */
+    /** A key press during normal play: applies to whatever is on air, and says so if it cannot. */
     public Optional<ActionId> dispatch(char key) {
-        return dispatch(key, state.selection());
+        Selection selection = state.selection();
+        Optional<ActionId> ran = dispatch(key, selection);
+        if (ran.isEmpty()) {
+            bindings.actionFor(key).ifPresent(id -> console.error(
+                    id.requires() == ActionId.Requires.SONG ? "No song playing.\n" : "No station selected.\n"));
+        }
+        return ran;
     }
 
     /** @return the action that ran, or empty if the key is unbound or needs something the selection lacks */

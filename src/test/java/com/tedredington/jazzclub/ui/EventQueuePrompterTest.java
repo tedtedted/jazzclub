@@ -187,6 +187,22 @@ class EventQueuePrompterTest {
     }
 
     @Test
+    void aSecretIsReadWithoutEchoingAnythingIncludingItsLength() {
+        type("hunter", DELETE, "r2", ENTER);
+
+        assertThat(prompter.readSecret()).contains("hunter2");
+        assertThat(console.output()).isEqualTo("\n");
+    }
+
+    @Test
+    void ctrlUAlsoWorksSilentlyInASecret() {
+        type("wrong", CTRL_U, "right", ENTER);
+
+        assertThat(prompter.readSecret()).contains("right");
+        assertThat(console.output()).isEqualTo("\n");
+    }
+
+    @Test
     void interruptionEndsThePrompt() {
         Thread.currentThread().interrupt();
 

@@ -5,11 +5,15 @@ import java.util.List;
 import java.util.Optional;
 
 import com.tedredington.jazzclub.pandora.error.PandoraException;
+import com.tedredington.jazzclub.pandora.model.AccountChange;
+import com.tedredington.jazzclub.pandora.model.AccountSettings;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.pandora.model.GenreCategory;
 import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationInfo;
+import com.tedredington.jazzclub.pandora.model.StationMode;
 import com.tedredington.jazzclub.pandora.model.StationSeed;
 
 /**
@@ -61,4 +65,25 @@ public interface PandoraClient {
     void bookmarkSong(Song song);
 
     void bookmarkArtist(Song song);
+
+    /** The station's seeds and the feedback given on it. */
+    StationInfo stationInfo(Station station);
+
+    /** Removes an artist or song seed; {@code seedId} comes from {@link #stationInfo}. */
+    void deleteSeed(String seedId);
+
+    /** Takes back a thumbs up or down; {@code feedbackId} comes from {@link #stationInfo}. */
+    void deleteFeedback(String feedbackId);
+
+    List<StationMode> stationModes(Station station);
+
+    void setStationMode(Station station, StationMode mode);
+
+    AccountSettings accountSettings();
+
+    /**
+     * Changes the account. Pandora wants the current login as proof; the client uses the one it logged
+     * in with and, after a successful change of name or password, carries on with the new one.
+     */
+    void changeAccount(AccountChange change);
 }

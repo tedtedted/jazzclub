@@ -115,13 +115,13 @@ class ConfigFileEnvironmentPostProcessorTest {
 
     @Test
     void unsupportedKeysAreIgnored() throws IOException {
-        writeXdgConfig("act_managestation = =\nfifo = /tmp/ctl\n");
+        writeXdgConfig("act_debug = $\nproxy = http://127.0.0.1:8080\n");
 
         postProcess();
 
-        assertThat(environment.getProperty("act_managestation")).isNull();
-        assertThat(environment.getProperty("jazzclub.keys[act_managestation]")).isNull();
-        assertThat(environment.getProperty("fifo")).isNull();
+        assertThat(environment.getProperty("act_debug")).isNull();
+        assertThat(environment.getProperty("jazzclub.keys[act_debug]")).isNull();
+        assertThat(environment.getProperty("proxy")).isNull();
     }
 
     @Test

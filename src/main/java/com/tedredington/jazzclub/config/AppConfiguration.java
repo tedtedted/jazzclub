@@ -1,5 +1,6 @@
 package com.tedredington.jazzclub.config;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,6 +29,7 @@ import com.tedredington.jazzclub.player.StreamingAudioPlayer;
 import com.tedredington.jazzclub.player.ffmpeg.FfmpegDecoder;
 import com.tedredington.jazzclub.player.javasound.JavaSoundAudioSink;
 import com.tedredington.jazzclub.player.javasound.JavaSoundNativeSupport;
+import com.tedredington.jazzclub.remote.ControlFifo;
 import com.tedredington.jazzclub.terminal.TerminalSession;
 import com.tedredington.jazzclub.ui.AnsiConsole;
 import com.tedredington.jazzclub.ui.Console;
@@ -150,6 +152,15 @@ class AppConfiguration {
     @Lazy
     TerminalSession terminalSession(EventQueue events) {
         return new TerminalSession(events);
+    }
+
+    @Bean(destroyMethod = "close")
+    @Lazy
+    ControlFifo controlFifo(JazzclubProperties properties, EventQueue events, Console console) {
+        Path fifo = properties.fifo() != null
+                ? properties.fifo()
+                : XdgDirectories.system().configDirectory().resolve("ctl");
+        return new ControlFifo(fifo, events, console);
     }
 
     /** Drives the once-a-second time display. */

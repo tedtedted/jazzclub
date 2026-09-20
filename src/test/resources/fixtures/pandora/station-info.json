@@ -1,0 +1,7 @@
+{"stat":"ok","result":{"stationToken":"200","stationName":"Bill Evans Radio",
+ "music":{"artists":[{"artistName":"Bill Evans","seedId":"A1","musicToken":"R1"}],
+          "songs":[{"songName":"So What","artistName":"Miles Davis","seedId":"S1"},
+                   {"songName":"Naima","artistName":"John Coltrane","seedId":"S2"}]},
+ "feedback":{"thumbsUp":[{"songName":"Peace Piece","artistName":"Bill Evans","feedbackId":"F1","isPositive":true}],
+             "thumbsDown":[{"songName":"Birdland","artistName":"Weather Report","feedbackId":"F2","isPositive":false}],
+             "totalThumbsUp":1,"totalThumbsDown":1}}}

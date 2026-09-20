@@ -17,6 +17,9 @@ public interface Prompter {
         return readLine(null);
     }
 
+    /** Like {@link #readLine()}, but nothing of what is typed appears on screen. For passwords. */
+    Optional<String> readSecret();
+
     /**
      * Reads a single key press, without waiting for Enter. Keys not in {@code allowedCharacters} are
      * ignored; {@code null} accepts any printable key.

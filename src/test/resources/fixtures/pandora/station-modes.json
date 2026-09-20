@@ -1,0 +1,5 @@
+{"stat":"ok","result":{"currentModeId":2,"availableModes":[
+ {"modeId":0,"modeName":"My Station","modeDescription":"The station experience you know and love","isAlgorithmicMode":false},
+ {"modeId":2,"modeName":"Deep Cuts","modeDescription":"Less familiar songs from station artists","isAlgorithmicMode":true},
+ {"modeName":"Broken entry without id"},
+ {"modeId":5,"modeName":"Discovery","modeDescription":"More artists who don't usually play on this station"}]}}

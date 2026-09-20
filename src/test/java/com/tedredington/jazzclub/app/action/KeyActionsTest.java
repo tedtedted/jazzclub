@@ -26,10 +26,13 @@ import com.tedredington.jazzclub.app.StationService;
 import com.tedredington.jazzclub.app.event.EventType;
 import com.tedredington.jazzclub.app.event.PlayerEvents;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
+import com.tedredington.jazzclub.pandora.model.AccountSettings;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.pandora.model.GenreCategory;
 import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationInfo;
+import com.tedredington.jazzclub.pandora.model.StationMode;
 import com.tedredington.jazzclub.pandora.model.Rating;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.player.PlaybackResult;
@@ -71,7 +74,9 @@ class KeyActionsTest {
             new CreateStationAction(client, calls, stationService, musicSearch, listPicker, prompter, console),
             new EditStationAction(state, stationService, musicSearch, stationPicker, prompter, console),
             new BookmarkAction(client, calls, prompter, console),
-            new HistoryAction(state, listPicker, prompter, console, renderer));
+            new HistoryAction(state, listPicker, prompter, console, renderer),
+            new ManageStationAction(client, calls, state, radio, listPicker, prompter, console, renderer),
+            new SettingsAction(client, calls, prompter, console));
     private final ActionDispatcher dispatcher = new ActionDispatcher(bindings, state, console, actions);
 
     private final Song a = song("a", "200");
@@ -592,6 +597,167 @@ class KeyActionsTest {
         assertThat(client.calls).containsExactly("explain a");
     }
 
+    private static final StationInfo FULL_INFO = new StationInfo(
+            List.of(new StationInfo.ArtistSeed("Bill Evans", "A1")),
+            List.of(new StationInfo.SongSeed("So What", "Miles Davis", "S1")),
+            List.of(new StationInfo.Feedback("Peace Piece", "Bill Evans", "F1", true),
+                    new StationInfo.Feedback("Birdland", "Weather Report", "F2", false)));
+
+    @Test
+    void manageStationOffersOnlyWhatTheStationHas() {
+        assertThat(ManageStationAction.Menu.of(FULL_INFO, EVANS))
+                .isEqualTo(new ManageStationAction.Menu(
+                        "Delete [a]rtist/[s]ong seeds or [f]eedback? Manage [m]ode? ", "asfm"));
+        assertThat(ManageStationAction.Menu.of(new StationInfo(List.of(), FULL_INFO.songSeeds(), List.of()), EVANS)
+                .question()).isEqualTo("Delete [s]ong seeds? Manage [m]ode? ");
+        assertThat(ManageStationAction.Menu.of(new StationInfo(List.of(), List.of(), FULL_INFO.feedback()), QUICKMIX))
+                .isEqualTo(new ManageStationAction.Menu("Delete [f]eedback? ", "f"));
+        assertThat(ManageStationAction.Menu.of(new StationInfo(List.of(), List.of(), List.of()), EVANS).question())
+                .isEqualTo("Manage [m]ode? ");
+    }
+
+    @Test
+    void aQuickMixWithNothingToDeleteHasNoActions() {
+        client.playlists.add(List.of(song("q", "200")));
+        radio.tune(QUICKMIX);
+        console.clear();
+
+        press("=");
+
+        assertThat(console.output()).isEqualTo("(i) Fetching station info... Ok.\n(i) No actions available.\n");
+    }
+
+    @Test
+    void seedsCanBeDeleted() {
+        client.stationInfo = FULL_INFO;
+        prompter.answer("a", "0");
+        press("=");
+        prompter.answer("s", "0");
+        press("=");
+
+        assertThat(client.calls).containsExactly("info Bill Evans Radio", "deleteSeed A1",
+                "info Bill Evans Radio", "deleteSeed S1");
+        assertThat(console.output()).contains("\t 0) Bill Evans\n[?] Select artist: (i) Deleting artist seed... Ok.\n")
+                .contains("\t 0) Miles Davis - So What\n[?] Select song: (i) Deleting song seed... Ok.\n");
+        assertThat(events.types()).containsExactly(EventType.STATION_FETCH_INFO,
+                EventType.STATION_DELETE_ARTIST_SEED, EventType.STATION_FETCH_INFO, EventType.STATION_DELETE_SONG_SEED);
+    }
+
+    @Test
+    void feedbackIsListedWithItsThumbAndCanBeTakenBack() {
+        client.stationInfo = FULL_INFO;
+        prompter.answer("f", "1");
+
+        press("=");
+
+        assertThat(console.output()).contains(
+                "\t 0) Bill Evans - Peace Piece <3\n\t 1) Weather Report - Birdland </3\n[?] Select song: ");
+        assertThat(client.calls).containsExactly("info Bill Evans Radio", "deleteFeedback F2");
+    }
+
+    @Test
+    void backingOutOfManageStationDeletesNothing() {
+        client.stationInfo = FULL_INFO;
+        prompter.answer("");
+        press("=");
+        prompter.answer("a", "");
+        press("=");
+        prompter.answer("x");
+        press("=");
+
+        assertThat(client.calls).containsOnly("info Bill Evans Radio");
+    }
+
+    @Test
+    void aNewModeIsPickedByPositionSentByIdAndHeardImmediately() {
+        client.modes = List.of(new StationMode(0, "My Station", "As you know it", false),
+                new StationMode(7, "Deep Cuts", "Less familiar songs", true));
+        prompter.answer("m", "9", "1");
+
+        press("=");
+
+        assertThat(console.output()).contains("""
+                \t 0) My Station: As you know it
+                \t 1) Deep Cuts: Less familiar songs (active)
+                [?] Pick a new mode: (i) Selecting mode "Deep Cuts"... Ok.
+                """);
+        assertThat(client.calls).containsExactly("info Bill Evans Radio", "modes Bill Evans Radio",
+                "setMode Bill Evans Radio 7");
+        assertThat(player.stops()).as("the queue was chosen under the old mode").isEqualTo(1);
+        assertThat(state.upcoming()).isEmpty();
+    }
+
+    @Test
+    void leavingTheModeMenuChangesNothing() {
+        client.modes = List.of(new StationMode(0, "My Station", "", true));
+        prompter.answer("m", "");
+
+        press("=");
+
+        assertThat(client.calls).doesNotContain("setMode Bill Evans Radio 0");
+        assertThat(player.stops()).isZero();
+    }
+
+    @Test
+    void settingsAreShownWithThePasswordMasked() {
+        client.settings = new AccountSettings("me@example.com", true);
+        prompter.answer("");
+
+        press("!");
+
+        assertThat(console.output()).isEqualTo("""
+                (i) Retrieving settings... Ok.
+                \t 0) Username (me@example.com)
+                \t 1) Password (*****)
+                \t 2) Explicit content filter (yes)
+                [?] Change setting:\s""");
+        assertThat(client.calls).containsExactly("settings");
+    }
+
+    @Test
+    void severalSettingsAreCollectedAndSentAsOneChange() {
+        prompter.answer("2", "y", "0", "new@example.com", "");
+
+        press("!");
+
+        assertThat(client.calls).containsExactly("settings",
+                "changeAccount user=new@example.com password=null filter=true");
+        assertThat(console.output()).endsWith(
+                "(i) Changing settings... Ok.\n(i) Remember to update your config file, or the next start cannot log in.\n");
+        assertThat(events.types()).containsExactly(EventType.SETTINGS_GET, EventType.SETTINGS_CHANGE);
+    }
+
+    @Test
+    void aNewPasswordIsAskedForWithoutEcho() {
+        prompter.answer("1", "n3w-s3cret", "");
+
+        press("!");
+
+        assertThat(prompter.secretsAsked()).isEqualTo(1);
+        assertThat(client.calls).contains("changeAccount user=null password=n3w-s3cret filter=null");
+        assertThat(console.output()).doesNotContain("n3w-s3cret");
+    }
+
+    @Test
+    void theFilterQuestionDefaultsToTheCurrentValueAndNeedsNoReminder() {
+        client.settings = new AccountSettings("me@example.com", true);
+        prompter.answer("2", "", "");
+
+        press("!");
+
+        assertThat(client.calls).contains("changeAccount user=null password=null filter=true");
+        assertThat(console.output()).doesNotContain("Remember to update");
+    }
+
+    @Test
+    void unknownNumbersAndEmptyAnswersChangeNothing() {
+        prompter.answer("7", "0", "", "1", "", "");
+
+        press("!");
+
+        assertThat(client.calls).containsExactly("settings");
+    }
+
     @Test
     void unboundKeysDoNothing() {
         press("#yzQ");
@@ -605,11 +771,16 @@ class KeyActionsTest {
         state.clearStation();
         state.finishSong();
 
-        press("+-tein pSadrxbv");
+        press("+n");
 
         assertThat(client.calls).isEmpty();
-        assertThat(console.output()).isEmpty();
+        assertThat(console.output()).isEqualTo("/!\\ No song playing.\n/!\\ No station selected.\n");
         assertThat(player.stops()).isZero();
+
+        console.clear();
+        press("-tei pSadrxbv=");
+        assertThat(client.calls).isEmpty();
+        assertThat(console.output()).doesNotContain("(i)").contains("No song playing.").contains("No station selected.");
     }
 
     @Test

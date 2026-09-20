@@ -56,6 +56,12 @@ public final class Radio {
         skip();
     }
 
+    /** Drops what is queued and moves on, so a change to the playing station is heard right away. */
+    public void restartStation() {
+        state.station().ifPresent(state::changeStation);
+        skip();
+    }
+
     /** Stops the radio: the current song ends and nothing follows until a station is chosen again. */
     public void stop() {
         state.clearStation();

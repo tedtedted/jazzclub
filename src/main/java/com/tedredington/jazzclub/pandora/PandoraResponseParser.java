@@ -11,6 +11,7 @@ import java.util.Set;
 import com.tedredington.jazzclub.pandora.error.AudioQualityUnavailableException;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
 import com.tedredington.jazzclub.pandora.error.PandoraProtocolException;
+import com.tedredington.jazzclub.pandora.model.AccountSettings;
 import com.tedredington.jazzclub.pandora.model.AudioEncoding;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.pandora.model.GenreCategory;
@@ -18,6 +19,8 @@ import com.tedredington.jazzclub.pandora.model.Rating;
 import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationInfo;
+import com.tedredington.jazzclub.pandora.model.StationMode;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -103,6 +106,47 @@ final class PandoraResponseParser {
                     song.path("artistName").asString(""), requiredText(song, "musicToken")));
         }
         return new SearchResult(artists, songs);
+    }
+
+    StationInfo stationInfo(JsonNode result) {
+        List<StationInfo.ArtistSeed> artists = new ArrayList<>();
+        for (JsonNode artist : result.path("music").path("artists")) {
+            artists.add(new StationInfo.ArtistSeed(artist.path("artistName").asString(""),
+                    requiredText(artist, "seedId")));
+        }
+        List<StationInfo.SongSeed> songs = new ArrayList<>();
+        for (JsonNode song : result.path("music").path("songs")) {
+            songs.add(new StationInfo.SongSeed(song.path("songName").asString(""),
+                    song.path("artistName").asString(""), requiredText(song, "seedId")));
+        }
+        List<StationInfo.Feedback> feedback = new ArrayList<>();
+        for (String kind : List.of("thumbsUp", "thumbsDown")) {
+            for (JsonNode entry : result.path("feedback").path(kind)) {
+                feedback.add(new StationInfo.Feedback(entry.path("songName").asString(""),
+                        entry.path("artistName").asString(""), requiredText(entry, "feedbackId"),
+                        entry.path("isPositive").asBoolean(kind.equals("thumbsUp"))));
+            }
+        }
+        return new StationInfo(artists, songs, feedback);
+    }
+
+    List<StationMode> stationModes(JsonNode result) {
+        int active = result.path("currentModeId").asInt(-1);
+        List<StationMode> modes = new ArrayList<>();
+        for (JsonNode mode : result.path("availableModes")) {
+            if (!mode.path("modeId").isIntegralNumber()) {
+                continue;
+            }
+            int id = mode.path("modeId").asInt();
+            modes.add(new StationMode(id, mode.path("modeName").asString(""),
+                    mode.path("modeDescription").asString(""), id == active));
+        }
+        return List.copyOf(modes);
+    }
+
+    AccountSettings accountSettings(JsonNode result) {
+        return new AccountSettings(result.path("username").asString(""),
+                result.path("isExplicitContentFilterEnabled").asBoolean(false));
     }
 
     List<GenreCategory> genreCategories(JsonNode result) {

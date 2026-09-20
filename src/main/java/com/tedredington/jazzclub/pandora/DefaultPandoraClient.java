@@ -12,11 +12,15 @@ import java.util.Optional;
 import com.tedredington.jazzclub.pandora.error.InvalidLoginException;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
 import com.tedredington.jazzclub.pandora.error.PandoraErrorCode;
+import com.tedredington.jazzclub.pandora.model.AccountChange;
+import com.tedredington.jazzclub.pandora.model.AccountSettings;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.pandora.model.GenreCategory;
 import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationInfo;
+import com.tedredington.jazzclub.pandora.model.StationMode;
 import com.tedredington.jazzclub.pandora.model.StationSeed;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -159,6 +163,68 @@ public final class DefaultPandoraClient implements PandoraClient {
     @Override
     public synchronized void bookmarkArtist(Song song) {
         call("bookmark.addArtistBookmark", json.createObjectNode().put("trackToken", song.trackToken()));
+    }
+
+    @Override
+    public synchronized StationInfo stationInfo(Station station) {
+        ObjectNode body = stationToken(station)
+                .put("includeExtendedAttributes", true)
+                .put("includeExtraParams", true);
+        return parser.stationInfo(call("station.getStation", body));
+    }
+
+    @Override
+    public synchronized void deleteSeed(String seedId) {
+        call("station.deleteMusic", json.createObjectNode().put("seedId", seedId));
+    }
+
+    @Override
+    public synchronized void deleteFeedback(String feedbackId) {
+        call("station.deleteFeedback", json.createObjectNode().put("feedbackId", feedbackId));
+    }
+
+    @Override
+    public synchronized List<StationMode> stationModes(Station station) {
+        return parser.stationModes(call("interactiveradio.v1.getAvailableModesSimple",
+                json.createObjectNode().put("stationId", station.token())));
+    }
+
+    @Override
+    public synchronized void setStationMode(Station station, StationMode mode) {
+        // pianobar sends the position in the list here; the mode's own id is what Pandora asks for
+        call("interactiveradio.v1.setAndGetAvailableModes", json.createObjectNode()
+                .put("stationId", station.token())
+                .put("modeId", mode.id()));
+    }
+
+    @Override
+    public synchronized AccountSettings accountSettings() {
+        return parser.accountSettings(call("user.getSettings", json.createObjectNode()));
+    }
+
+    @Override
+    public synchronized void changeAccount(AccountChange change) {
+        if (credentials == null) {
+            throw new IllegalStateException("login() must succeed before calling user.changeSettings");
+        }
+        ObjectNode body = json.createObjectNode()
+                .put("userInitiatedChange", true)
+                .put("currentUsername", credentials.username())
+                .put("currentPassword", credentials.password());
+        if (change.explicitContentFilter() != null) {
+            body.put("isExplicitContentFilterEnabled", change.explicitContentFilter());
+        }
+        if (change.newUsername() != null) {
+            body.put("newUsername", change.newUsername());
+        }
+        if (change.newPassword() != null) {
+            body.put("newPassword", change.newPassword());
+        }
+        call("user.changeSettings", body);
+        // a later re-login, e.g. after the token expired, must use what is valid now
+        credentials = new UserCredentials(
+                change.newUsername() != null ? change.newUsername() : credentials.username(),
+                change.newPassword() != null ? change.newPassword() : credentials.password());
     }
 
     private ObjectNode stationToken(Station station) {

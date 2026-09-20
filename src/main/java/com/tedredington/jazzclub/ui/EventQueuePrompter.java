@@ -69,6 +69,15 @@ public final class EventQueuePrompter implements Prompter {
 
     @Override
     public Optional<String> readLine(String allowedCharacters) {
+        return readLine(allowedCharacters, true);
+    }
+
+    @Override
+    public Optional<String> readSecret() {
+        return readLine(null, false);
+    }
+
+    private Optional<String> readLine(String allowedCharacters, boolean echo) {
         StringBuilder line = new StringBuilder();
         List<Event> deferred = new ArrayList<>();
         try {
@@ -80,7 +89,7 @@ public final class EventQueuePrompter implements Prompter {
                             console.append("\n");
                             return line.isEmpty() ? Optional.empty() : Optional.of(line.toString());
                         }
-                        edit(line, key, allowedCharacters);
+                        edit(line, key, allowedCharacters, echo);
                     }
                     case Event.Tick tick -> {
                         // dropped
@@ -101,19 +110,25 @@ public final class EventQueuePrompter implements Prompter {
         }
     }
 
-    private void edit(StringBuilder line, char key, String allowedCharacters) {
+    private void edit(StringBuilder line, char key, String allowedCharacters, boolean echo) {
         if (key == BACKSPACE || key == DELETE) {
             if (!line.isEmpty()) {
                 line.setLength(line.length() - 1);
-                console.append("\b \b");
+                if (echo) {
+                    console.append("\b \b");
+                }
             }
         } else if (key == CTRL_U) {
-            console.append("\b \b".repeat(line.length()));
+            if (echo) {
+                console.append("\b \b".repeat(line.length()));
+            }
             line.setLength(0);
         } else if (!Character.isISOControl(key)
                 && (allowedCharacters == null || allowedCharacters.indexOf(key) >= 0)) {
             line.append(key);
-            console.append(String.valueOf(key));
+            if (echo) {
+                console.append(String.valueOf(key));
+            }
         }
     }
 }

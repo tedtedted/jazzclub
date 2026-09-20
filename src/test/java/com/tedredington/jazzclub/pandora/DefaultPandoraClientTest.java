@@ -15,6 +15,8 @@ import com.tedredington.jazzclub.pandora.error.InvalidLoginException;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
 import com.tedredington.jazzclub.pandora.error.PandoraErrorCode;
 import com.tedredington.jazzclub.pandora.error.PandoraProtocolException;
+import com.tedredington.jazzclub.pandora.model.AccountChange;
+import com.tedredington.jazzclub.pandora.model.AccountSettings;
 import com.tedredington.jazzclub.pandora.model.AudioEncoding;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.pandora.model.GenreCategory;
@@ -22,6 +24,8 @@ import com.tedredington.jazzclub.pandora.model.Rating;
 import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationInfo;
+import com.tedredington.jazzclub.pandora.model.StationMode;
 import com.tedredington.jazzclub.pandora.model.StationSeed;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -507,6 +511,160 @@ class DefaultPandoraClientTest {
             assertThat(shared.asOwned()).isEqualTo(new Station("1", "Theirs", true, false, false));
             assertThat(shared.withName("Mine")).isEqualTo(new Station("1", "Mine", false, false, false));
             assertThat(shared.withInQuickMix(true)).isEqualTo(new Station("1", "Theirs", false, false, true));
+        }
+    }
+
+    @Nested
+    class SeedsModesAndAccount {
+
+        private String method(int request) {
+            return transport.request(request).uri().getQuery().split("&")[0];
+        }
+
+        @Test
+        void stationInfoListsSeedsAndFeedbackWithTheIdsNeededToDeleteThem() {
+            loggedIn();
+            transport.respond(Fixtures.load("station-info.json"));
+
+            StationInfo info = client.stationInfo(STATION);
+
+            assertThat(method(2)).isEqualTo("method=station.getStation");
+            assertThat(decryptedBody(2).path("stationToken").asString()).isEqualTo("200");
+            assertThat(decryptedBody(2).path("includeExtendedAttributes").asBoolean()).isTrue();
+            assertThat(info.artistSeeds()).containsExactly(new StationInfo.ArtistSeed("Bill Evans", "A1"));
+            assertThat(info.songSeeds()).containsExactly(new StationInfo.SongSeed("So What", "Miles Davis", "S1"),
+                    new StationInfo.SongSeed("Naima", "John Coltrane", "S2"));
+            assertThat(info.feedback()).containsExactly(
+                    new StationInfo.Feedback("Peace Piece", "Bill Evans", "F1", true),
+                    new StationInfo.Feedback("Birdland", "Weather Report", "F2", false));
+        }
+
+        @Test
+        void aBareStationHasNothingToManage() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\",\"result\":{\"stationToken\":\"200\"}}");
+
+            StationInfo info = client.stationInfo(STATION);
+
+            assertThat(info.artistSeeds()).isEmpty();
+            assertThat(info.songSeeds()).isEmpty();
+            assertThat(info.feedback()).isEmpty();
+        }
+
+        @Test
+        void seedsAndFeedbackAreDeletedByTheirIds() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}").respond("{\"stat\":\"ok\"}");
+
+            client.deleteSeed("S1");
+            client.deleteFeedback("F2");
+
+            assertThat(method(2)).isEqualTo("method=station.deleteMusic");
+            assertThat(decryptedBody(2).path("seedId").asString()).isEqualTo("S1");
+            assertThat(method(3)).isEqualTo("method=station.deleteFeedback");
+            assertThat(decryptedBody(3).path("feedbackId").asString()).isEqualTo("F2");
+        }
+
+        @Test
+        void modesAreListedWithTheActiveOneMarkedAndBrokenEntriesSkipped() {
+            loggedIn();
+            transport.respond(Fixtures.load("station-modes.json"));
+
+            List<StationMode> modes = client.stationModes(STATION);
+
+            assertThat(method(2)).isEqualTo("method=interactiveradio.v1.getAvailableModesSimple");
+            assertThat(decryptedBody(2).path("stationId").asString()).isEqualTo("200");
+            assertThat(modes).extracting(StationMode::id).containsExactly(0, 2, 5);
+            assertThat(modes).extracting(StationMode::active).containsExactly(false, true, false);
+            assertThat(modes.get(1).name()).isEqualTo("Deep Cuts");
+        }
+
+        @Test
+        void aModeIsSelectedByItsOwnIdNotItsPositionInTheList() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}");
+
+            client.setStationMode(STATION, new StationMode(5, "Discovery", "", false));
+
+            assertThat(method(2)).isEqualTo("method=interactiveradio.v1.setAndGetAvailableModes");
+            assertThat(decryptedBody(2).path("modeId").asInt()).isEqualTo(5);
+        }
+
+        @Test
+        void accountSettingsAreRead() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\",\"result\":{\"username\":\"listener@example.com\","
+                    + "\"isExplicitContentFilterEnabled\":true,\"zipCode\":\"12345\"}}");
+
+            assertThat(client.accountSettings()).isEqualTo(new AccountSettings("listener@example.com", true));
+            assertThat(method(2)).isEqualTo("method=user.getSettings");
+        }
+
+        @Test
+        void anAccountChangeProvesItselfWithTheCurrentLoginAndSendsOnlyWhatChanges() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}");
+
+            client.changeAccount(AccountChange.NONE.withExplicitContentFilter(true));
+
+            JsonNode body = decryptedBody(2);
+            assertThat(method(2)).isEqualTo("method=user.changeSettings");
+            assertThat(body.path("currentUsername").asString()).isEqualTo(USER.username());
+            assertThat(body.path("currentPassword").asString()).isEqualTo(USER.password());
+            assertThat(body.path("userInitiatedChange").asBoolean()).isTrue();
+            assertThat(body.path("isExplicitContentFilterEnabled").asBoolean()).isTrue();
+            assertThat(body.has("newUsername")).isFalse();
+            assertThat(body.has("newPassword")).isFalse();
+            assertThat(transport.request(2).body()).as("encrypted like everything else").matches("[0-9a-f]+");
+        }
+
+        @Test
+        void afterAPasswordChangeTheNextReloginUsesTheNewPassword() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}")
+                    .respond(Fixtures.failure(1001))
+                    .respond(partnerLoginOk())
+                    .respond(Fixtures.load("user-login-ok.json"))
+                    .respond(Fixtures.load("station-list.json"));
+
+            client.changeAccount(AccountChange.NONE.withPassword("n3w").withUsername("new@example.com"));
+            client.stations();
+
+            JsonNode relogin = decryptedBody(5);
+            assertThat(relogin.path("username").asString()).isEqualTo("new@example.com");
+            assertThat(relogin.path("password").asString()).isEqualTo("n3w");
+        }
+
+        @Test
+        void aRejectedChangeKeepsTheOldLogin() {
+            loggedIn();
+            transport.respond(Fixtures.failure(1012))
+                    .respond(Fixtures.failure(1001))
+                    .respond(partnerLoginOk())
+                    .respond(Fixtures.load("user-login-ok.json"))
+                    .respond(Fixtures.load("station-list.json"));
+
+            assertThatThrownBy(() -> client.changeAccount(AccountChange.NONE.withPassword("n3w")))
+                    .isInstanceOf(PandoraApiException.class);
+            client.stations();
+
+            assertThat(decryptedBody(5).path("password").asString()).isEqualTo(USER.password());
+        }
+
+        @Test
+        void accountChangesNeedALogin() {
+            assertThatThrownBy(() -> client.changeAccount(AccountChange.NONE.withPassword("x")))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        void aNewPasswordNeverShowsUpInToString() {
+            AccountChange change = AccountChange.NONE.withPassword("hunter2").withUsername("me");
+
+            assertThat(change.toString()).contains("me").contains("****").doesNotContain("hunter2");
+            assertThat(AccountChange.NONE.toString()).contains("newPassword=null");
+            assertThat(AccountChange.NONE.isEmpty()).isTrue();
+            assertThat(change.isEmpty()).isFalse();
         }
     }
 

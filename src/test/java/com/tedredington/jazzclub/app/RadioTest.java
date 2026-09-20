@@ -261,6 +261,19 @@ class RadioTest {
     }
 
     @Test
+    void restartingDropsTheQueueSoAChangeToTheStationIsHeardAtOnce() {
+        client.playlists.add(List.of(a, b));
+        client.playlists.add(List.of(song("fresh", "200")));
+        radio.tune(EVANS);
+
+        radio.restartStation();
+        finish(PlaybackResult.stopped());
+
+        assertThat(state.song()).map(Song::title).contains("fresh");
+        assertThat(state.station()).contains(EVANS);
+    }
+
+    @Test
     void skipWithNothingPlayingStartsPlayback() {
         state.changeStation(EVANS);
         client.playlists.add(List.of(a));
