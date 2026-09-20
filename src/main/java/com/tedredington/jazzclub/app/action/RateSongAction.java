@@ -6,6 +6,7 @@ import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.PlaybackState;
 import com.tedredington.jazzclub.app.Radio;
+import com.tedredington.jazzclub.app.StationService;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.model.Rating;
 import com.tedredington.jazzclub.pandora.model.Song;
@@ -19,12 +20,15 @@ class RateSongAction implements KeyAction {
     private final PandoraClient client;
     private final PlaybackState state;
     private final Radio radio;
+    private final StationService stations;
     private final Console console;
 
-    RateSongAction(PandoraClient client, PlaybackState state, Radio radio, Console console) {
+    RateSongAction(PandoraClient client, PlaybackState state, Radio radio, StationService stations,
+                   Console console) {
         this.client = client;
         this.state = state;
         this.radio = radio;
+        this.stations = stations;
         this.console = console;
     }
 
@@ -36,6 +40,10 @@ class RateSongAction implements KeyAction {
     @Override
     public void execute(ActionId id) {
         Song song = state.song().orElseThrow();
+        if (id != ActionId.SONG_TIRED) {
+            // feedback lands on the song's own station, which on QuickMix is not the one playing
+            state.findStation(song.stationId()).ifPresent(stations::transformIfShared);
+        }
         switch (id) {
             case SONG_LOVE -> {
                 console.info("Loving song... ");

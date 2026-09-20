@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.InstantSource;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -12,10 +13,14 @@ import com.tedredington.jazzclub.pandora.error.InvalidLoginException;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
 import com.tedredington.jazzclub.pandora.error.PandoraErrorCode;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.pandora.model.GenreCategory;
+import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationSeed;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
@@ -89,6 +94,75 @@ public final class DefaultPandoraClient implements PandoraClient {
     public synchronized Optional<String> explain(Song song) {
         ObjectNode body = json.createObjectNode().put("trackToken", song.trackToken());
         return parser.explanation(call("track.explainTrack", body));
+    }
+
+    @Override
+    public synchronized SearchResult search(String text) {
+        return parser.searchResult(call("music.search", json.createObjectNode().put("searchText", text)));
+    }
+
+    @Override
+    public synchronized Station createStation(StationSeed seed) {
+        ObjectNode body = json.createObjectNode();
+        switch (seed) {
+            case StationSeed.MusicToken(String token) -> body.put("musicToken", token);
+            case StationSeed.FromSong(Song song) -> body.put("trackToken", song.trackToken()).put("musicType", "song");
+            case StationSeed.FromArtist(Song song) ->
+                    body.put("trackToken", song.trackToken()).put("musicType", "artist");
+        }
+        return parser.station(call("station.createStation", body));
+    }
+
+    @Override
+    public synchronized void addMusic(Station station, String musicToken) {
+        call("station.addMusic", json.createObjectNode()
+                .put("musicToken", musicToken)
+                .put("stationToken", station.token()));
+    }
+
+    @Override
+    public synchronized void renameStation(Station station, String newName) {
+        call("station.renameStation", json.createObjectNode()
+                .put("stationToken", station.token())
+                .put("stationName", newName));
+    }
+
+    @Override
+    public synchronized void deleteStation(Station station) {
+        call("station.deleteStation", stationToken(station));
+    }
+
+    @Override
+    public synchronized List<GenreCategory> genreStations() {
+        return parser.genreCategories(call("station.getGenreStations", json.createObjectNode()));
+    }
+
+    @Override
+    public synchronized void setQuickMix(Collection<Station> members) {
+        ObjectNode body = json.createObjectNode();
+        ArrayNode ids = body.putArray("quickMixStationIds");
+        // the QuickMix station cannot contain itself
+        members.stream().filter(s -> !s.quickMix()).map(Station::token).forEach(ids::add);
+        call("user.setQuickMix", body);
+    }
+
+    @Override
+    public synchronized void transformSharedStation(Station station) {
+        call("station.transformSharedStation", stationToken(station));
+    }
+
+    @Override
+    public synchronized void bookmarkSong(Song song) {
+        call("bookmark.addSongBookmark", json.createObjectNode().put("trackToken", song.trackToken()));
+    }
+
+    @Override
+    public synchronized void bookmarkArtist(Song song) {
+        call("bookmark.addArtistBookmark", json.createObjectNode().put("trackToken", song.trackToken()));
+    }
+
+    private ObjectNode stationToken(Station station) {
+        return json.createObjectNode().put("stationToken", station.token());
     }
 
     /** An authenticated call. An expired token triggers one transparent re-login, like pianobar. */

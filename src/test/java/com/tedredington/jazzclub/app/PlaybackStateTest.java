@@ -100,6 +100,25 @@ class PlaybackStateTest {
     }
 
     @Test
+    void putStationAddsOrReplacesByToken() {
+        state.stations(List.of(EVANS));
+
+        state.putStation(HARD_BOP);
+        state.putStation(EVANS.withName("Renamed"));
+
+        assertThat(state.stations()).containsExactlyInAnyOrder(HARD_BOP, EVANS.withName("Renamed"));
+    }
+
+    @Test
+    void removeStationForgetsIt() {
+        state.stations(List.of(EVANS, HARD_BOP));
+
+        state.removeStation(EVANS);
+
+        assertThat(state.stations()).containsExactly(HARD_BOP);
+    }
+
+    @Test
     void quitIsSticky() {
         state.requestQuit();
 

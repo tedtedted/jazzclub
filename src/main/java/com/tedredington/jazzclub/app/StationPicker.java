@@ -4,6 +4,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import com.tedredington.jazzclub.pandora.model.Station;
 import com.tedredington.jazzclub.ui.Console;
@@ -29,16 +31,27 @@ public final class StationPicker {
 
     /** @return empty if the user backed out with an empty line, or there is nothing to choose from */
     public Optional<Station> pick(List<Station> stations, String prompt) {
-        if (stations.isEmpty()) {
+        return pick(() -> stations, prompt, true, input -> false);
+    }
+
+    /**
+     * @param stations   read again before every listing, so a {@code command} may change what is shown
+     * @param autoselect take a single remaining filter match without asking
+     * @param command    sees every input that is not a station number; returns {@code true} if it
+     *                   handled it, otherwise the input becomes the filter
+     */
+    public Optional<Station> pick(Supplier<List<Station>> stations, String prompt, boolean autoselect,
+                                  Predicate<String> command) {
+        if (stations.get().isEmpty()) {
             console.error("No station available.\n");
             return Optional.empty();
         }
-        List<Station> sorted = stations.stream()
-                .sorted(Comparator.comparing(s -> s.name().toLowerCase(Locale.ROOT)))
-                .toList();
 
         String filter = "";
         while (true) {
+            List<Station> sorted = stations.get().stream()
+                    .sorted(Comparator.comparing(s -> s.name().toLowerCase(Locale.ROOT)))
+                    .toList();
             int matches = 0;
             int lastMatch = -1;
             for (int i = 0; i < sorted.size(); i++) {
@@ -49,7 +62,7 @@ public final class StationPicker {
                 }
             }
             console.print(MessageType.QUESTION, prompt);
-            if (matches == 1 && sorted.size() != 1) {
+            if (autoselect && matches == 1 && sorted.size() != 1) {
                 console.append(lastMatch + "\n");
                 return Optional.of(sorted.get(lastMatch));
             }
@@ -59,18 +72,10 @@ public final class StationPicker {
                 return Optional.empty();
             }
             String input = line.get().strip();
-            Optional<Station> byNumber = parseIndex(input).filter(i -> i < sorted.size()).map(sorted::get);
-            if (byNumber.isPresent()) {
-                return byNumber;
+            if (ListPicker.isIndex(input) && Integer.parseInt(input) < sorted.size()) {
+                return Optional.of(sorted.get(Integer.parseInt(input)));
             }
-            filter = input.toLowerCase(Locale.ROOT);
+            filter = command.test(input) ? "" : input.toLowerCase(Locale.ROOT);
         }
-    }
-
-    private static Optional<Integer> parseIndex(String input) {
-        if (input.isEmpty() || input.length() > 6 || !input.chars().allMatch(c -> c >= '0' && c <= '9')) {
-            return Optional.empty();
-        }
-        return Optional.of(Integer.parseInt(input));
     }
 }

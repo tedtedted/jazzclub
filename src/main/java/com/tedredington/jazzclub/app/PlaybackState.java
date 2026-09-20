@@ -1,6 +1,7 @@
 package com.tedredington.jazzclub.app;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
@@ -30,6 +31,21 @@ public final class PlaybackState {
 
     public void stations(List<Station> stations) {
         this.stations = List.copyOf(stations);
+    }
+
+    /** Adds a station, or replaces the one with the same token. The playing station is kept in step. */
+    public void putStation(Station updated) {
+        List<Station> changed = new ArrayList<>(stations);
+        changed.removeIf(s -> s.token().equals(updated.token()));
+        changed.add(updated);
+        stations = List.copyOf(changed);
+        if (station != null && station.token().equals(updated.token())) {
+            station = updated;
+        }
+    }
+
+    public void removeStation(Station removed) {
+        stations = stations.stream().filter(s -> !s.token().equals(removed.token())).toList();
     }
 
     public Optional<Station> station() {

@@ -1,0 +1,4 @@
+{"stat":"ok","result":{"nearMatchesAvailable":true,"explanation":"",
+ "artists":[{"artistName":"Miles Davis","musicToken":"R123","likelyMatch":true,"score":100},
+            {"artistName":"Miles Davis Quintet","musicToken":"R456","likelyMatch":false,"score":80}],
+ "songs":[{"songName":"So What","artistName":"Miles Davis","musicToken":"S789","score":90}]}}

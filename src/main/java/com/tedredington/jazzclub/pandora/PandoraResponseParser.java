@@ -13,7 +13,9 @@ import com.tedredington.jazzclub.pandora.error.PandoraApiException;
 import com.tedredington.jazzclub.pandora.error.PandoraProtocolException;
 import com.tedredington.jazzclub.pandora.model.AudioEncoding;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.pandora.model.GenreCategory;
 import com.tedredington.jazzclub.pandora.model.Rating;
+import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
 import tools.jackson.core.JacksonException;
@@ -71,17 +73,49 @@ final class PandoraResponseParser {
         }
 
         List<Station> stations = new ArrayList<>();
-        for (JsonNode station : result.path("stations")) {
-            String token = requiredText(station, "stationToken");
-            stations.add(new Station(
-                    token,
-                    requiredText(station, "stationName"),
-                    !station.path("isShared").asBoolean(false),
-                    station.path("isQuickMix").asBoolean(false),
-                    // Pandora lists members by stationId; pianobar compares them to the token, which is the same value
-                    quickMixMembers.contains(token)));
+        for (JsonNode node : result.path("stations")) {
+            Station station = station(node);
+            // Pandora lists members by stationId; pianobar compares them to the token, which is the same value
+            stations.add(station.withInQuickMix(quickMixMembers.contains(station.token())));
         }
         return List.copyOf(stations);
+    }
+
+    /** One station object, as found in the station list and returned by {@code createStation}. */
+    Station station(JsonNode node) {
+        return new Station(
+                requiredText(node, "stationToken"),
+                requiredText(node, "stationName"),
+                !node.path("isShared").asBoolean(false),
+                node.path("isQuickMix").asBoolean(false),
+                false);
+    }
+
+    SearchResult searchResult(JsonNode result) {
+        List<SearchResult.ArtistMatch> artists = new ArrayList<>();
+        for (JsonNode artist : result.path("artists")) {
+            artists.add(new SearchResult.ArtistMatch(
+                    artist.path("artistName").asString(""), requiredText(artist, "musicToken")));
+        }
+        List<SearchResult.SongMatch> songs = new ArrayList<>();
+        for (JsonNode song : result.path("songs")) {
+            songs.add(new SearchResult.SongMatch(song.path("songName").asString(""),
+                    song.path("artistName").asString(""), requiredText(song, "musicToken")));
+        }
+        return new SearchResult(artists, songs);
+    }
+
+    List<GenreCategory> genreCategories(JsonNode result) {
+        List<GenreCategory> categories = new ArrayList<>();
+        for (JsonNode category : result.path("categories")) {
+            List<GenreCategory.Genre> genres = new ArrayList<>();
+            for (JsonNode station : category.path("stations")) {
+                genres.add(new GenreCategory.Genre(
+                        station.path("stationName").asString(""), requiredText(station, "stationToken")));
+            }
+            categories.add(new GenreCategory(category.path("categoryName").asString(""), genres));
+        }
+        return List.copyOf(categories);
     }
 
     List<Song> playlist(JsonNode result, AudioQuality quality) {

@@ -16,11 +16,17 @@ import com.tedredington.jazzclub.app.ActionDispatcher;
 import com.tedredington.jazzclub.app.ActionId;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.KeyBindings;
+import com.tedredington.jazzclub.app.ListPicker;
+import com.tedredington.jazzclub.app.MusicSearch;
 import com.tedredington.jazzclub.app.PlaybackState;
 import com.tedredington.jazzclub.app.Radio;
 import com.tedredington.jazzclub.app.StationPicker;
+import com.tedredington.jazzclub.app.StationService;
 import com.tedredington.jazzclub.pandora.error.PandoraApiException;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.pandora.model.GenreCategory;
+import com.tedredington.jazzclub.pandora.model.SearchResult;
+import com.tedredington.jazzclub.pandora.model.Station;
 import com.tedredington.jazzclub.pandora.model.Rating;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.player.PlaybackResult;
@@ -43,13 +49,20 @@ class KeyActionsTest {
     private final Renderer renderer = new Renderer(FORMAT);
     private final KeyBindings bindings = new KeyBindings(Map.of());
     private final Radio radio = new Radio(client, player, state, console, renderer, AudioQuality.HIGH, 3);
+    private final StationService stationService = new StationService(client, state, radio, console);
+    private final StationPicker stationPicker = new StationPicker(console, prompter, renderer);
+    private final ListPicker listPicker = new ListPicker(console, prompter);
+    private final MusicSearch musicSearch = new MusicSearch(client, console, prompter, listPicker);
     private final List<KeyAction> actions = List.of(
             new HelpAction(bindings, console),
-            new RateSongAction(client, state, radio, console),
+            new RateSongAction(client, state, radio, stationService, console),
             new ExplainAction(client, state, console),
             new SongInfoAction(state, console, renderer),
             new TransportAction(player, radio, state),
-            new ChangeStationAction(new StationPicker(console, prompter, renderer), state, radio));
+            new ChangeStationAction(stationPicker, state, radio),
+            new CreateStationAction(client, state, stationService, musicSearch, listPicker, prompter, console),
+            new EditStationAction(state, stationService, musicSearch, stationPicker, prompter, console),
+            new BookmarkAction(client, state, prompter, console));
     private final ActionDispatcher dispatcher = new ActionDispatcher(bindings, state, console, actions);
 
     private final Song a = song("a", "200");
@@ -83,7 +96,7 @@ class KeyActionsTest {
         KeyBindings custom = new KeyBindings(Map.of("act_songlove", "l", "act_songban", "disabled"));
         new HelpAction(custom, console).execute(ActionId.HELP);
 
-        assertThat(console.output()).startsWith("\r\tl    love song\n\te    explain why this song is played\n")
+        assertThat(console.output()).startsWith("\r\tl    love song\n\ta    add music to station\n")
                 .contains("\tq    quit\n")
                 .doesNotContain("    ban song")
                 .doesNotContain("act_");
@@ -240,8 +253,184 @@ class KeyActionsTest {
     }
 
     @Test
+    void ratingASongFromASharedStationTransformsThatStationFirst() {
+        press("n");
+        player.finish();
+        radio.onTrackFinished(player.lastId(), PlaybackResult.stopped()); // now playing b, from shared Hard Bop
+        client.calls.clear();
+
+        press("+");
+
+        assertThat(client.calls).containsExactly("transform Hard Bop Radio", "love b");
+        assertThat(state.findStation("300")).map(Station::creator).contains(true);
+    }
+
+    @Test
+    void tiredNeedsNoTransformBecauseItIsNotStationFeedback() {
+        press("n");
+        player.finish();
+        radio.onTrackFinished(player.lastId(), PlaybackResult.stopped());
+        client.calls.clear();
+
+        press("t");
+
+        assertThat(client.calls).containsExactly("tired b");
+    }
+
+    @Test
+    void createStationSearchesAndCreatesFromThePick() {
+        client.searchResult = new SearchResult(List.of(new SearchResult.ArtistMatch("Miles Davis", "R123")), List.of());
+        prompter.answer("miles", "0");
+
+        press("c");
+
+        assertThat(client.calls).containsExactly("search miles", "create token R123");
+        assertThat(state.stations()).contains(client.created);
+        assertThat(state.station()).as("pianobar does not switch to the new station either").contains(EVANS);
+        assertThat(console.output()).endsWith("(i) Creating station... Ok.\n");
+    }
+
+    @Test
+    void createStationFromThePlayingSongOrArtist() {
+        prompter.answer("s");
+        press("v");
+        prompter.answer("a");
+        press("v");
+        prompter.answer("");
+        press("v");
+
+        assertThat(client.calls).containsExactly("create song a", "create artist a");
+        assertThat(console.output()).startsWith("[?] Create station from [s]ong or [a]rtist? (i) Creating station... Ok.\n");
+    }
+
+    @Test
+    void genreStationsAreFetchedOnceThenPickedByCategoryAndGenre() {
+        client.genres = List.of(
+                new GenreCategory("Jazz", List.of(new GenreCategory.Genre("Bebop", "G100"),
+                        new GenreCategory.Genre("Cool Jazz", "G101"))),
+                new GenreCategory("Classical", List.of(new GenreCategory.Genre("Baroque", "G200"))));
+        prompter.answer("0", "1");
+        press("g");
+        prompter.answer("1", "");
+        press("g");
+
+        assertThat(client.calls).containsExactly("genres", "create token G101");
+        assertThat(console.output())
+                .contains("(i) Receiving genre stations... Ok.\n\t 0) Jazz\n\t 1) Classical\n[?] Select category: ")
+                .contains("\t 0) Bebop\n\t 1) Cool Jazz\n[?] Select genre: ")
+                .contains("(i) Adding genre station \"Cool Jazz\"... Ok.\n");
+    }
+
+    @Test
+    void sharedStationsAreAddedByTheirNumericId() {
+        prompter.answer("1234567890");
+        press("j");
+        prompter.answer("sh123");
+        press("j");
+
+        assertThat(client.calls).containsExactly("create token 1234567890");
+        assertThat(console.output()).startsWith("[?] Station id: (i) Adding shared station... Ok.\n");
+    }
+
+    @Test
+    void addMusicSearchesThenSeedsThePlayingStation() {
+        client.searchResult = new SearchResult(List.of(),
+                List.of(new SearchResult.SongMatch("So What", "Miles Davis", "S789")));
+        prompter.answer("so what", "0");
+
+        press("a");
+
+        assertThat(client.calls).containsExactly("search so what", "addMusic Bill Evans Radio S789");
+    }
+
+    @Test
+    void renameAsksForTheNewNameAndAnEmptyAnswerCancels() {
+        prompter.answer("Late Night");
+        press("r");
+        prompter.answer("");
+        press("r");
+
+        assertThat(client.calls).containsExactly("rename Bill Evans Radio -> Late Night");
+        assertThat(state.station()).map(Station::name).contains("Late Night");
+    }
+
+    @Test
+    void deleteWantsAnExplicitYes() {
+        prompter.answer("");
+        press("d");
+        prompter.answer("n");
+        press("d");
+        assertThat(client.calls).isEmpty();
+        assertThat(console.output()).startsWith("[?] Really delete \"Bill Evans Radio\"? [yN] ");
+
+        prompter.answer("y");
+        press("d");
+
+        assertThat(client.calls).containsExactly("delete Bill Evans Radio");
+        assertThat(state.station()).isEmpty();
+        assertThat(player.stops()).isEqualTo(1);
+    }
+
+    @Test
+    void quickMixCanOnlyBeEditedWhileQuickMixIsPlaying() {
+        press("x");
+
+        assertThat(console.output()).isEqualTo("/!\\ Please select a QuickMix station first.\n");
+        assertThat(client.calls).isEmpty();
+    }
+
+    @Test
+    void quickMixTogglesStationsAndSavesOnEnter() {
+        client.playlists.add(List.of(song("q", "200")));
+        radio.tune(QUICKMIX);
+        client.calls.clear();
+        // sorted menu: 0 Bill Evans (member), 1 Hard Bop (not), 2 QuickMix
+        prompter.answer("1", "0", "");
+
+        press("x");
+
+        assertThat(client.calls).containsExactly("quickmix [Hard Bop Radio]");
+        assertThat(state.findStation("200")).map(Station::inQuickMix).contains(false);
+        assertThat(state.findStation("300")).map(Station::inQuickMix).contains(true);
+    }
+
+    @Test
+    void quickMixShortcutsSelectAllNoneOrInvert() {
+        client.playlists.add(List.of(song("q", "200")));
+        radio.tune(QUICKMIX);
+
+        client.calls.clear();
+        prompter.answer("a", "");
+        press("x");
+        assertThat(client.calls).containsExactly("quickmix [Bill Evans Radio, Hard Bop Radio, QuickMix]");
+
+        client.calls.clear();
+        prompter.answer("n", "");
+        press("x");
+        assertThat(client.calls).containsExactly("quickmix []");
+
+        client.calls.clear();
+        prompter.answer("t", "");
+        press("x");
+        assertThat(client.calls).containsExactly("quickmix [Bill Evans Radio, Hard Bop Radio, QuickMix]");
+    }
+
+    @Test
+    void bookmarkAsksWhichAndCanBeCancelled() {
+        prompter.answer("s");
+        press("b");
+        prompter.answer("a");
+        press("b");
+        prompter.answer("");
+        press("b");
+
+        assertThat(client.calls).containsExactly("bookmark song a", "bookmark artist a");
+        assertThat(console.output()).startsWith("[?] Bookmark [s]ong or [a]rtist? (i) Bookmarking song... Ok.\n");
+    }
+
+    @Test
     void unboundKeysDoNothing() {
-        press("#xyz");
+        press("#yzQ");
 
         assertThat(console.output()).isEmpty();
         assertThat(client.calls).isEmpty();
@@ -252,7 +441,7 @@ class KeyActionsTest {
         state.clearStation();
         state.finishSong();
 
-        press("+-tein pS");
+        press("+-tein pSadrxbv");
 
         assertThat(client.calls).isEmpty();
         assertThat(console.output()).isEmpty();

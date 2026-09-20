@@ -9,22 +9,34 @@ import java.util.Optional;
  */
 public enum ActionId {
 
+    // In the order of pianobar's dispatch table, which is also the order of the help screen and
+    // decides which action wins when two are bound to the same key.
     HELP("act_help", '?', null, Requires.NOTHING),
     SONG_LOVE("act_songlove", '+', "love song", Requires.SONG),
     SONG_BAN("act_songban", '-', "ban song", Requires.SONG),
+    STATION_ADD_MUSIC("act_stationaddmusic", 'a', "add music to station", Requires.STATION),
+    STATION_CREATE("act_stationcreate", 'c', "create new station", Requires.NOTHING),
+    STATION_DELETE("act_stationdelete", 'd', "delete station", Requires.STATION),
     SONG_EXPLAIN("act_songexplain", 'e', "explain why this song is played", Requires.SONG),
+    STATION_ADD_GENRE("act_stationaddbygenre", 'g', "add genre station", Requires.NOTHING),
     SONG_INFO("act_songinfo", 'i', "print information about song/station", Requires.SONG),
+    STATION_ADD_SHARED("act_addshared", 'j', "add shared station", Requires.NOTHING),
     SONG_NEXT("act_songnext", 'n', "next song", Requires.STATION),
     SONG_PAUSE_TOGGLE("act_songpausetoggle", 'p', "pause/resume playback", Requires.STATION),
-    SONG_PAUSE_TOGGLE_2("act_songpausetoggle2", ' ', null, Requires.STATION),
-    SONG_PLAY("act_songplay", 'P', "resume playback", Requires.STATION),
-    SONG_PAUSE("act_songpause", 'S', "pause playback", Requires.STATION),
     QUIT("act_quit", 'q', "quit", Requires.NOTHING),
+    STATION_RENAME("act_stationrename", 'r', "rename station", Requires.STATION),
     STATION_CHANGE("act_stationchange", 's', "change station", Requires.NOTHING),
     SONG_TIRED("act_songtired", 't', "tired (ban song for 1 month)", Requires.SONG),
     UPCOMING("act_upcoming", 'u', "upcoming songs", Requires.STATION),
+    STATION_QUICKMIX("act_stationselectquickmix", 'x', "select quickmix stations", Requires.STATION),
+    BOOKMARK("act_bookmark", 'b', "bookmark song/artist", Requires.SONG),
     VOLUME_DOWN("act_voldown", '(', "decrease volume", Requires.NOTHING),
     VOLUME_UP("act_volup", ')', "increase volume", Requires.NOTHING),
+    SONG_PAUSE_TOGGLE_2("act_songpausetoggle2", ' ', null, Requires.STATION),
+    STATION_CREATE_FROM_SONG("act_stationcreatefromsong", 'v', "create new station from song or artist",
+            Requires.SONG),
+    SONG_PLAY("act_songplay", 'P', "resume playback", Requires.STATION),
+    SONG_PAUSE("act_songpause", 'S', "pause playback", Requires.STATION),
     VOLUME_RESET("act_volreset", '^', "reset volume", Requires.NOTHING);
 
     /** What must be selected for the action to make sense; otherwise the key press is ignored. */

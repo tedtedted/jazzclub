@@ -99,6 +99,31 @@ class StationPickerTest {
     }
 
     @Test
+    void withAutoselectOffASingleMatchStillAsks() {
+        prompter.answer("evans", "1");
+
+        assertThat(picker.pick(() -> STATIONS, "? ", false, input -> false)).contains(EVANS);
+        assertThat(prompter.prompts()).isEqualTo(2);
+    }
+
+    @Test
+    void aCommandCanChangeTheListAndIsNotUsedAsFilter() {
+        java.util.List<Station> shown = new java.util.ArrayList<>(List.of(EVANS, HARD_BOP));
+        prompter.answer("a", "");
+
+        picker.pick(() -> shown, "? ", false, input -> {
+            if (input.equals("a")) {
+                shown.replaceAll(s -> s.withInQuickMix(true));
+                return true;
+            }
+            return false;
+        });
+
+        // second listing shows both stations (no filter "a") with the q flag set by the command
+        assertThat(console.output()).endsWith("\t 0) q   Bill Evans Radio\n\t 1) q S Hard Bop Radio\n[?] ? ");
+    }
+
+    @Test
     void noStationsIsAnErrorNotAPrompt() {
         assertThat(picker.pick(List.of(), "? ")).isEmpty();
         assertThat(console.output()).isEqualTo("/!\\ No station available.\n");

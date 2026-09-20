@@ -2,6 +2,7 @@ package com.tedredington.jazzclub.testsupport;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
@@ -10,8 +11,11 @@ import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.UserCredentials;
 import com.tedredington.jazzclub.pandora.error.PandoraException;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.pandora.model.GenreCategory;
+import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationSeed;
 
 /** A Pandora that answers from canned data and notes what it was asked. */
 public final class StubPandoraClient implements PandoraClient {
@@ -20,6 +24,9 @@ public final class StubPandoraClient implements PandoraClient {
     public final Deque<List<Song>> playlists = new ArrayDeque<>();
     public List<Station> stations = List.of();
     public Optional<String> explanation = Optional.empty();
+    public SearchResult searchResult = new SearchResult(List.of(), List.of());
+    public List<GenreCategory> genres = List.of();
+    public Station created = new Station("500", "Created Radio", true, false, false);
     /** Thrown by the next call, once. */
     public PandoraException failure;
 
@@ -64,5 +71,62 @@ public final class StubPandoraClient implements PandoraClient {
     public Optional<String> explain(Song song) {
         record("explain " + song.title());
         return explanation;
+    }
+
+    @Override
+    public SearchResult search(String text) {
+        record("search " + text);
+        return searchResult;
+    }
+
+    @Override
+    public Station createStation(StationSeed seed) {
+        record("create " + switch (seed) {
+            case StationSeed.MusicToken(String token) -> "token " + token;
+            case StationSeed.FromSong(Song song) -> "song " + song.title();
+            case StationSeed.FromArtist(Song song) -> "artist " + song.title();
+        });
+        return created;
+    }
+
+    @Override
+    public void addMusic(Station station, String musicToken) {
+        record("addMusic " + station.name() + " " + musicToken);
+    }
+
+    @Override
+    public void renameStation(Station station, String newName) {
+        record("rename " + station.name() + " -> " + newName);
+    }
+
+    @Override
+    public void deleteStation(Station station) {
+        record("delete " + station.name());
+    }
+
+    @Override
+    public List<GenreCategory> genreStations() {
+        record("genres");
+        return genres;
+    }
+
+    @Override
+    public void setQuickMix(Collection<Station> members) {
+        record("quickmix " + members.stream().map(Station::name).sorted().toList());
+    }
+
+    @Override
+    public void transformSharedStation(Station station) {
+        record("transform " + station.name());
+    }
+
+    @Override
+    public void bookmarkSong(Song song) {
+        record("bookmark song " + song.title());
+    }
+
+    @Override
+    public void bookmarkArtist(Song song) {
+        record("bookmark artist " + song.title());
     }
 }

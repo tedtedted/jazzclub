@@ -8,10 +8,13 @@ import java.util.concurrent.TimeUnit;
 import com.tedredington.jazzclub.app.ActionDispatcher;
 import com.tedredington.jazzclub.app.KeyAction;
 import com.tedredington.jazzclub.app.KeyBindings;
+import com.tedredington.jazzclub.app.ListPicker;
+import com.tedredington.jazzclub.app.MusicSearch;
 import com.tedredington.jazzclub.app.PlaybackState;
 import com.tedredington.jazzclub.app.PlayerLoop;
 import com.tedredington.jazzclub.app.Radio;
 import com.tedredington.jazzclub.app.StationPicker;
+import com.tedredington.jazzclub.app.StationService;
 import com.tedredington.jazzclub.cli.VersionProvider;
 import com.tedredington.jazzclub.config.file.XdgDirectories;
 import com.tedredington.jazzclub.credentials.CredentialsProvider;
@@ -85,6 +88,23 @@ class AppConfiguration {
     Radio radio(PandoraClient client, AudioPlayer player, PlaybackState state, Console console, Renderer renderer,
                 JazzclubProperties properties) {
         return new Radio(client, player, state, console, renderer, properties.audioQuality(), properties.maxRetry());
+    }
+
+    @Bean
+    ListPicker listPicker(Console console, Prompter prompter) {
+        return new ListPicker(console, prompter);
+    }
+
+    @Bean
+    @Lazy
+    MusicSearch musicSearch(PandoraClient client, Console console, Prompter prompter, ListPicker picker) {
+        return new MusicSearch(client, console, prompter, picker);
+    }
+
+    @Bean
+    @Lazy
+    StationService stationService(PandoraClient client, PlaybackState state, Radio radio, Console console) {
+        return new StationService(client, state, radio, console);
     }
 
     @Bean

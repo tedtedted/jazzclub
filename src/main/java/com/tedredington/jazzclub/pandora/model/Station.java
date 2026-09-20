@@ -14,4 +14,17 @@ public record Station(String token, String name, boolean creator, boolean quickM
         Objects.requireNonNull(token, "token");
         Objects.requireNonNull(name, "name");
     }
+
+    public Station withName(String newName) {
+        return new Station(token, newName, creator, quickMix, inQuickMix);
+    }
+
+    public Station withInQuickMix(boolean member) {
+        return new Station(token, name, creator, quickMix, member);
+    }
+
+    /** A shared station after {@code transformSharedStation}: now the listener's own. */
+    public Station asOwned() {
+        return new Station(token, name, true, quickMix, inQuickMix);
+    }
 }

@@ -114,6 +114,72 @@ class EventQueuePrompterTest {
     }
 
     @Test
+    void readCharReturnsOnTheFirstAllowedKeyWithoutWaitingForEnter() {
+        type("xyzs", "never read");
+
+        assertThat(prompter.readChar("sa")).contains('s');
+        assertThat(console.output()).isEqualTo("s\n");
+    }
+
+    @Test
+    void readCharTreatsEnterAsNoAnswer() {
+        type(ENTER);
+
+        assertThat(prompter.readChar("sa")).isEmpty();
+    }
+
+    @Test
+    void readCharAlsoSetsAsideWhatIsNotForIt() throws InterruptedException {
+        Event.TrackFinished finished = new Event.TrackFinished(3, PlaybackResult.completed());
+        events.publish(new Event.Tick());
+        events.publish(finished);
+        type("a");
+
+        assertThat(prompter.readChar("sa")).contains('a');
+        assertThat(events.take()).isEqualTo(finished);
+    }
+
+    @Test
+    void readCharEndsWhenInputCloses() throws InterruptedException {
+        events.publish(new Event.InputClosed());
+
+        assertThat(prompter.readChar("sa")).isEmpty();
+        assertThat(events.take()).isEqualTo(new Event.InputClosed());
+    }
+
+    @Test
+    void aRestrictedLineIgnoresEverythingElse() {
+        type("1a2-3", ENTER);
+
+        assertThat(prompter.readLine("0123456789")).contains("123");
+        assertThat(console.output()).isEqualTo("123\n");
+    }
+
+    @Test
+    void readNumberParsesDigitsAndRefusesAbsurdLengths() {
+        type("42", ENTER);
+        assertThat(prompter.readNumber()).contains(42);
+
+        type("12345678901234567890", ENTER);
+        assertThat(prompter.readNumber()).isEmpty();
+
+        type(ENTER);
+        assertThat(prompter.readNumber()).isEmpty();
+    }
+
+    @Test
+    void confirmTakesOneKeyAndFallsBackToTheDefault() {
+        type("y");
+        assertThat(prompter.confirm(false)).isTrue();
+        type("N");
+        assertThat(prompter.confirm(true)).isFalse();
+        type(ENTER);
+        assertThat(prompter.confirm(false)).isFalse();
+        type(ENTER);
+        assertThat(prompter.confirm(true)).isTrue();
+    }
+
+    @Test
     void interruptionEndsThePrompt() {
         Thread.currentThread().interrupt();
 

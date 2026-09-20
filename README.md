@@ -91,22 +91,34 @@ jazzclub is controlled with single key presses while it plays. No Enter needed.
 | Key | Action | Config key |
 |:---:|---|---|
 | `?` | show this list | `act_help` |
+| `q` | quit | `act_quit` |
+| **Playback** | | |
+| `n` | next song | `act_songnext` |
+| `p` | pause/resume playback | `act_songpausetoggle` |
+| `Space` | pause/resume playback | `act_songpausetoggle2` |
+| `S` | pause playback | `act_songpause` |
+| `P` | resume playback | `act_songplay` |
+| `(` | decrease volume | `act_voldown` |
+| `)` | increase volume | `act_volup` |
+| `^` | reset volume | `act_volreset` |
+| **The playing song** | | |
 | `+` | love song | `act_songlove` |
 | `-` | ban song | `act_songban` |
 | `t` | tired (ban song for 1 month) | `act_songtired` |
 | `e` | explain why this song is played | `act_songexplain` |
 | `i` | print information about song/station | `act_songinfo` |
 | `u` | upcoming songs | `act_upcoming` |
-| `n` | next song | `act_songnext` |
-| `p` | pause/resume playback | `act_songpausetoggle` |
-| `Space` | pause/resume playback | `act_songpausetoggle2` |
-| `S` | pause playback | `act_songpause` |
-| `P` | resume playback | `act_songplay` |
+| `b` | bookmark song/artist | `act_bookmark` |
+| `v` | create new station from song or artist | `act_stationcreatefromsong` |
+| **Stations** | | |
 | `s` | change station | `act_stationchange` |
-| `(` | decrease volume | `act_voldown` |
-| `)` | increase volume | `act_volup` |
-| `^` | reset volume | `act_volreset` |
-| `q` | quit | `act_quit` |
+| `c` | create new station | `act_stationcreate` |
+| `g` | add genre station | `act_stationaddbygenre` |
+| `j` | add shared station | `act_addshared` |
+| `a` | add music to station | `act_stationaddmusic` |
+| `r` | rename station | `act_stationrename` |
+| `d` | delete station | `act_stationdelete` |
+| `x` | select quickmix stations | `act_stationselectquickmix` |
 
 `Ctrl-C` quits as well.
 
@@ -120,6 +132,24 @@ The station list is sorted by name. At the `Select station:` prompt you can
 
 The letters in front of a name mean: `q` the station is part of your QuickMix, `Q` it *is* the
 QuickMix, `S` it was shared with you by somebody else.
+
+### Creating and editing stations
+
+`c` asks for an artist or a song title, searches Pandora and lets you pick a match. If both artists
+and songs were found it first asks which you meant. Every list works like the station menu: a
+number selects, text narrows the list, an empty line backs out. `v` makes a station from the song
+that is playing, `g` offers Pandora's genre stations, and `j` adds a station somebody shared with
+you (the long number from its URL, without the leading `sh`). A new station is added to your list;
+press `s` to switch to it.
+
+`a`, `r` and `d` change the station that is playing. Deleting asks for confirmation and needs an
+explicit `y`.
+
+`x` edits your QuickMix and only works while QuickMix itself is playing. Pick stations to toggle
+their `q` flag; `a` selects all, `n` none, `t` inverts. An empty line saves.
+
+A station shared by somebody else is read-only. The first time you rate a song on it or edit it,
+jazzclub turns it into your own copy (`Transforming station...`), exactly as pianobar does.
 
 ## Configuration
 
@@ -230,10 +260,9 @@ Run `jazzclub -vv` and look at what it logs. Auth tokens and your password are n
 
 ## Differences from pianobar
 
-jazzclub 0.1 covers listening, rating and switching stations. Not there yet:
+jazzclub 0.1 covers listening, rating, and creating and managing stations. Not there yet:
 
-- creating, renaming, deleting and managing stations (`c`, `v`, `a`, `g`, `j`, `r`, `d`, `x`, `=`)
-- song history (`h`), bookmarks (`b`), account settings (`!`)
+- song history (`h`), managing a station's seeds and feedback (`=`), account settings (`!`)
 - `event_command` and the remote-control `fifo`
 - `proxy`, `control_proxy`, `bind_to`, `ca_bundle`, `sort`, `audio_pipe`, `sample_rate`
 

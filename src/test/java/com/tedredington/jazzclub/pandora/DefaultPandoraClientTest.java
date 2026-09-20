@@ -17,9 +17,12 @@ import com.tedredington.jazzclub.pandora.error.PandoraErrorCode;
 import com.tedredington.jazzclub.pandora.error.PandoraProtocolException;
 import com.tedredington.jazzclub.pandora.model.AudioEncoding;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.pandora.model.GenreCategory;
 import com.tedredington.jazzclub.pandora.model.Rating;
+import com.tedredington.jazzclub.pandora.model.SearchResult;
 import com.tedredington.jazzclub.pandora.model.Song;
 import com.tedredington.jazzclub.pandora.model.Station;
+import com.tedredington.jazzclub.pandora.model.StationSeed;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
@@ -360,6 +363,150 @@ class DefaultPandoraClientTest {
             assertThat(song.withRating(Rating.LOVE)).isEqualTo(new Song("Peace Piece", "Bill Evans",
                     "Everybody Digs", "tt-1", "300", URI.create("https://audio.example/1.m4a"),
                     AudioEncoding.AAC_PLUS, null, null, 0, Duration.ZERO, Rating.LOVE));
+        }
+    }
+
+    @Nested
+    class StationManagement {
+
+        private final Song song = new Song("So What", "Miles Davis", "Kind of Blue", "tt-9", "200",
+                URI.create("https://audio.example/9.m4a"), AudioEncoding.AAC_PLUS, null, null, 0, Duration.ZERO,
+                Rating.NONE);
+
+        private String method(int request) {
+            return transport.request(request).uri().getQuery().split("&")[0];
+        }
+
+        @Test
+        void searchFindsArtistsAndSongsWithTheirTokens() {
+            loggedIn();
+            transport.respond(Fixtures.load("search.json"));
+
+            SearchResult result = client.search("miles");
+
+            assertThat(method(2)).isEqualTo("method=music.search");
+            assertThat(decryptedBody(2).path("searchText").asString()).isEqualTo("miles");
+            assertThat(result.artists()).containsExactly(
+                    new SearchResult.ArtistMatch("Miles Davis", "R123"),
+                    new SearchResult.ArtistMatch("Miles Davis Quintet", "R456"));
+            assertThat(result.songs()).containsExactly(new SearchResult.SongMatch("So What", "Miles Davis", "S789"));
+            assertThat(result.isEmpty()).isFalse();
+        }
+
+        @Test
+        void aSearchWithoutHitsIsEmptyNotAnError() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\",\"result\":{}}");
+
+            assertThat(client.search("zzzz").isEmpty()).isTrue();
+        }
+
+        @Test
+        void aStationIsCreatedFromASearchTokenAndReturned() {
+            loggedIn();
+            transport.respond(Fixtures.load("create-station.json"));
+
+            Station created = client.createStation(new StationSeed.MusicToken("R123"));
+
+            assertThat(method(2)).isEqualTo("method=station.createStation");
+            assertThat(decryptedBody(2).path("musicToken").asString()).isEqualTo("R123");
+            assertThat(decryptedBody(2).has("trackToken")).isFalse();
+            assertThat(created).isEqualTo(new Station("500", "Miles Davis Radio", true, false, false));
+        }
+
+        @Test
+        void aStationFromThePlayingSongOrItsArtistUsesTheTrackToken() {
+            loggedIn();
+            transport.respond(Fixtures.load("create-station.json")).respond(Fixtures.load("create-station.json"));
+
+            client.createStation(new StationSeed.FromSong(song));
+            client.createStation(new StationSeed.FromArtist(song));
+
+            assertThat(decryptedBody(2).path("trackToken").asString()).isEqualTo("tt-9");
+            assertThat(decryptedBody(2).path("musicType").asString()).isEqualTo("song");
+            assertThat(decryptedBody(3).path("musicType").asString()).isEqualTo("artist");
+            assertThat(decryptedBody(3).has("musicToken")).isFalse();
+        }
+
+        @Test
+        void addMusicRenameDeleteAndTransformNameTheStation() {
+            loggedIn();
+            for (int i = 0; i < 4; i++) {
+                transport.respond("{\"stat\":\"ok\"}");
+            }
+
+            client.addMusic(STATION, "R123");
+            client.renameStation(STATION, "Late Night");
+            client.deleteStation(STATION);
+            client.transformSharedStation(STATION);
+
+            assertThat(List.of(method(2), method(3), method(4), method(5))).containsExactly(
+                    "method=station.addMusic", "method=station.renameStation",
+                    "method=station.deleteStation", "method=station.transformSharedStation");
+            assertThat(decryptedBody(2).path("musicToken").asString()).isEqualTo("R123");
+            assertThat(decryptedBody(3).path("stationName").asString()).isEqualTo("Late Night");
+            for (int request = 2; request <= 5; request++) {
+                assertThat(decryptedBody(request).path("stationToken").asString()).isEqualTo("200");
+            }
+        }
+
+        @Test
+        void genreStationsComeGroupedByCategory() {
+            loggedIn();
+            transport.respond(Fixtures.load("genre-stations.json"));
+
+            List<GenreCategory> categories = client.genreStations();
+
+            assertThat(method(2)).isEqualTo("method=station.getGenreStations");
+            assertThat(categories).extracting(GenreCategory::name).containsExactly("Jazz", "Classical");
+            assertThat(categories.getFirst().genres()).containsExactly(
+                    new GenreCategory.Genre("Bebop", "G100"), new GenreCategory.Genre("Cool Jazz", "G101"));
+        }
+
+        @Test
+        void quickMixSendsTheMemberIdsAndNeverTheQuickMixItself() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}");
+            Station quickMix = new Station("100", "QuickMix", true, true, true);
+
+            client.setQuickMix(List.of(quickMix, STATION, new Station("300", "Hard Bop Radio", true, false, true)));
+
+            assertThat(method(2)).isEqualTo("method=user.setQuickMix");
+            assertThat(decryptedBody(2).path("quickMixStationIds")).extracting(JsonNode::asString)
+                    .containsExactly("200", "300");
+        }
+
+        @Test
+        void anEmptyQuickMixSelectionIsSentAsAnEmptyList() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}");
+
+            client.setQuickMix(List.of());
+
+            assertThat(decryptedBody(2).path("quickMixStationIds").isArray()).isTrue();
+            assertThat(decryptedBody(2).path("quickMixStationIds")).isEmpty();
+        }
+
+        @Test
+        void bookmarksUseTheTrackToken() {
+            loggedIn();
+            transport.respond("{\"stat\":\"ok\"}").respond("{\"stat\":\"ok\"}");
+
+            client.bookmarkSong(song);
+            client.bookmarkArtist(song);
+
+            assertThat(method(2)).isEqualTo("method=bookmark.addSongBookmark");
+            assertThat(method(3)).isEqualTo("method=bookmark.addArtistBookmark");
+            assertThat(decryptedBody(3).path("trackToken").asString()).isEqualTo("tt-9");
+        }
+
+        @Test
+        void stationCopiesChangeExactlyOneProperty() {
+            Station shared = new Station("1", "Theirs", false, false, false);
+
+            assertThat(shared.asOwned()).isEqualTo(new Station("1", "Theirs", true, false, false));
+            assertThat(shared.withName("Mine")).isEqualTo(new Station("1", "Mine", false, false, false));
+            assertThat(shared.withInQuickMix(true)).isEqualTo(new Station("1", "Theirs", false, false, true));
         }
     }
 

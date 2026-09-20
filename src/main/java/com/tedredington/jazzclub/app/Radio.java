@@ -51,6 +51,16 @@ public final class Radio {
         skip();
     }
 
+    /** Stops the radio: the current song ends and nothing follows until a station is chosen again. */
+    public void stop() {
+        state.clearStation();
+        if (player.isActive()) {
+            player.stop();
+        } else {
+            state.finishSong();
+        }
+    }
+
     /** Ends the current song. The next one starts once the player confirms it has stopped. */
     public void skip() {
         if (player.isActive()) {

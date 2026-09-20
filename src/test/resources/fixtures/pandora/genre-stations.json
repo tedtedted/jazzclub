@@ -1,0 +1,4 @@
+{"stat":"ok","result":{"checksum":"x","categories":[
+ {"categoryName":"Jazz","stations":[{"stationName":"Bebop","stationToken":"G100","stationId":"G100"},
+                                    {"stationName":"Cool Jazz","stationToken":"G101","stationId":"G101"}]},
+ {"categoryName":"Classical","stations":[{"stationName":"Baroque","stationToken":"G200","stationId":"G200"}]}]}}

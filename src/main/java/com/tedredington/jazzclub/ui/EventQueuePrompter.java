@@ -29,8 +29,7 @@ public final class EventQueuePrompter implements Prompter {
     }
 
     @Override
-    public Optional<String> readLine() {
-        StringBuilder line = new StringBuilder();
+    public Optional<Character> readChar(String allowedCharacters) {
         List<Event> deferred = new ArrayList<>();
         try {
             while (true) {
@@ -39,9 +38,12 @@ public final class EventQueuePrompter implements Prompter {
                     case Event.KeyPressed(char key) -> {
                         if (key == '\r' || key == '\n' || key == CTRL_D) {
                             console.append("\n");
-                            return line.isEmpty() ? Optional.empty() : Optional.of(line.toString());
+                            return Optional.empty();
                         }
-                        edit(line, key);
+                        if (allowedCharacters.indexOf(key) >= 0) {
+                            console.append(key + "\n");
+                            return Optional.of(key);
+                        }
                     }
                     case Event.Tick tick -> {
                         // dropped
@@ -62,7 +64,41 @@ public final class EventQueuePrompter implements Prompter {
         }
     }
 
-    private void edit(StringBuilder line, char key) {
+    @Override
+    public Optional<String> readLine(String allowedCharacters) {
+        StringBuilder line = new StringBuilder();
+        List<Event> deferred = new ArrayList<>();
+        try {
+            while (true) {
+                Event event = events.take();
+                switch (event) {
+                    case Event.KeyPressed(char key) -> {
+                        if (key == '\r' || key == '\n' || key == CTRL_D) {
+                            console.append("\n");
+                            return line.isEmpty() ? Optional.empty() : Optional.of(line.toString());
+                        }
+                        edit(line, key, allowedCharacters);
+                    }
+                    case Event.Tick tick -> {
+                        // dropped
+                    }
+                    case Event.InputClosed closed -> {
+                        deferred.add(closed);
+                        console.append("\n");
+                        return Optional.empty();
+                    }
+                    case Event.TrackFinished finished -> deferred.add(finished);
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
+        } finally {
+            events.putBack(deferred);
+        }
+    }
+
+    private void edit(StringBuilder line, char key, String allowedCharacters) {
         if (key == BACKSPACE || key == DELETE) {
             if (!line.isEmpty()) {
                 line.setLength(line.length() - 1);
@@ -71,7 +107,8 @@ public final class EventQueuePrompter implements Prompter {
         } else if (key == CTRL_U) {
             console.append("\b \b".repeat(line.length()));
             line.setLength(0);
-        } else if (!Character.isISOControl(key)) {
+        } else if (!Character.isISOControl(key)
+                && (allowedCharacters == null || allowedCharacters.indexOf(key) >= 0)) {
             line.append(key);
             console.append(String.valueOf(key));
         }
