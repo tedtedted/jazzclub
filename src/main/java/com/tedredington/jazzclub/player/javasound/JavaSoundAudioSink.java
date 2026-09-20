@@ -10,20 +10,26 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
 import com.tedredington.jazzclub.player.AudioSink;
+import com.tedredington.jazzclub.player.PcmFormat;
 
 /** Plays through the default output device using {@code javax.sound.sampled}. */
 public final class JavaSoundAudioSink implements AudioSink {
 
-    private static final AudioFormat PCM = new AudioFormat(44_100f, 16, 2, true, false);
+    private final AudioFormat pcm;
 
     private volatile SourceDataLine line;
     private volatile FloatControl gainControl;
 
+    public JavaSoundAudioSink(PcmFormat format) {
+        this.pcm = new AudioFormat(format.sampleRate(), PcmFormat.BYTES_PER_SAMPLE * 8, PcmFormat.CHANNELS, true,
+                false);
+    }
+
     @Override
     public void open() throws IOException {
         try {
-            SourceDataLine newLine = AudioSystem.getSourceDataLine(PCM);
-            newLine.open(PCM);
+            SourceDataLine newLine = AudioSystem.getSourceDataLine(pcm);
+            newLine.open(pcm);
             if (newLine.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                 gainControl = (FloatControl) newLine.getControl(FloatControl.Type.MASTER_GAIN);
             }

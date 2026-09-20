@@ -185,6 +185,18 @@ class ConfigFileEnvironmentPostProcessorTest {
     }
 
     @Test
+    void pathsWithATildeAreExpandedBeforeTheyReachSpring() throws IOException {
+        writeXdgConfig("fifo = ~/.config/jazzclub/ctl\naudio_pipe = ~/snapfifo\nbuffer_seconds = 10\n");
+
+        postProcess();
+
+        String userHome = System.getProperty("user.home");
+        assertThat(environment.getProperty("jazzclub.fifo")).isEqualTo(userHome + "/.config/jazzclub/ctl");
+        assertThat(environment.getProperty("jazzclub.audio-pipe")).isEqualTo(userHome + "/snapfifo");
+        assertThat(environment.getProperty("jazzclub.buffer-seconds")).isEqualTo("10");
+    }
+
+    @Test
     void aMissingFileLeavesEverythingAtItsDefault() {
         postProcess();
 

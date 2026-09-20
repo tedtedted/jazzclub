@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import com.tedredington.jazzclub.app.ActionDispatcher;
 import com.tedredington.jazzclub.app.KeyAction;
@@ -28,10 +29,13 @@ import com.tedredington.jazzclub.event.EventQueue;
 import com.tedredington.jazzclub.network.ProxySettings;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.player.AudioPlayer;
+import com.tedredington.jazzclub.player.AudioSink;
+import com.tedredington.jazzclub.player.PcmFormat;
 import com.tedredington.jazzclub.player.StreamingAudioPlayer;
 import com.tedredington.jazzclub.player.ffmpeg.FfmpegDecoder;
 import com.tedredington.jazzclub.player.javasound.JavaSoundAudioSink;
 import com.tedredington.jazzclub.player.javasound.JavaSoundNativeSupport;
+import com.tedredington.jazzclub.player.pipe.PipeAudioSink;
 import com.tedredington.jazzclub.remote.ControlFifo;
 import com.tedredington.jazzclub.terminal.TerminalSession;
 import com.tedredington.jazzclub.ui.AnsiConsole;
@@ -91,10 +95,15 @@ class AppConfiguration {
     AudioPlayer audioPlayer(JazzclubProperties properties, PandoraProperties pandora, EventQueue events) {
         JavaSoundNativeSupport.prepare(XdgDirectories.system().cacheDirectory().resolve("lib"));
         ProxySettings streamProxy = pandora.streamProxy(System.getenv("http_proxy"));
+        PcmFormat format = PcmFormat.of(properties.sampleRate());
+        Supplier<AudioSink> sinks = properties.audioPipe() != null
+                ? () -> new PipeAudioSink(properties.audioPipe(), format)
+                : () -> new JavaSoundAudioSink(format);
         return new StreamingAudioPlayer(
                 FfmpegDecoder.factory(properties.ffmpeg(),
-                        streamProxy == null ? null : streamProxy.toEnvironmentValue()),
-                JavaSoundAudioSink::new,
+                                streamProxy == null ? null : streamProxy.toEnvironmentValue(), format)
+                        .prefetching(properties.bufferSeconds() * format.bytesPerSecond()),
+                sinks,
                 (id, result) -> events.publish(new Event.TrackFinished(id, result)),
                 properties.volume(),
                 properties.gainMul());

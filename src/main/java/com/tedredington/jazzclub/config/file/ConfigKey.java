@@ -26,8 +26,11 @@ public enum ConfigKey {
     AUTOSTART_STATION("autostart_station", "jazzclub.autostart-station"),
     SORT("sort", "jazzclub.sort"),
     AUTOSELECT("autoselect", "jazzclub.autoselect"),
-    EVENT_COMMAND("event_command", "jazzclub.event-command"),
-    FIFO("fifo", "jazzclub.fifo"),
+    BUFFER_SECONDS("buffer_seconds", "jazzclub.buffer-seconds"),
+    SAMPLE_RATE("sample_rate", "jazzclub.sample-rate"),
+    AUDIO_PIPE("audio_pipe", "jazzclub.audio-pipe", true),
+    EVENT_COMMAND("event_command", "jazzclub.event-command", true),
+    FIFO("fifo", "jazzclub.fifo", true),
 
     FORMAT_NOWPLAYING_SONG("format_nowplaying_song", "jazzclub.format.nowplaying-song"),
     FORMAT_NOWPLAYING_STATION("format_nowplaying_station", "jazzclub.format.nowplaying-station"),
@@ -63,10 +66,22 @@ public enum ConfigKey {
 
     private final String fileKey;
     private final String property;
+    private final boolean path;
 
     ConfigKey(String fileKey, String property) {
+        this(fileKey, property, false);
+    }
+
+    /** @param path pianobar expands a leading {@code ~/} in these values, since no shell ever sees them */
+    ConfigKey(String fileKey, String property, boolean path) {
         this.fileKey = fileKey;
         this.property = property;
+        this.path = path;
+    }
+
+    /** The value as it should reach Spring: with {@code ~/} expanded for settings that name a file. */
+    public String resolve(String value, String userHome) {
+        return path && value.startsWith("~/") ? userHome + value.substring(1) : value;
     }
 
     public static ConfigKey fromFileKey(String fileKey) {

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.tedredington.jazzclub.app.StationSort;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.player.PcmFormat;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -22,6 +23,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param autostartStation {@code autostart_station}: station id to play without asking
  * @param sort             {@code sort}: order of the station list
  * @param autoselect       {@code autoselect}: take a single remaining match in the station menu without asking
+ * @param bufferSeconds    {@code buffer_seconds}: how much decoded audio to keep ahead of playback
+ * @param sampleRate       {@code sample_rate}: output rate in Hz; 0 for the stream's own, 44100
+ * @param audioPipe        {@code audio_pipe}: named pipe to write raw audio to instead of the sound card
  * @param eventCommand     {@code event_command}: executable run for every player event
  * @param fifo             {@code fifo}: named pipe for remote control; default {@code ctl} next to the config
  * @param ffmpeg           name or path of the ffmpeg executable
@@ -40,6 +44,9 @@ public record JazzclubProperties(
         String autostartStation,
         @DefaultValue("name_az") StationSort sort,
         @DefaultValue("true") boolean autoselect,
+        @DefaultValue("5") int bufferSeconds,
+        @DefaultValue("0") int sampleRate,
+        Path audioPipe,
         String eventCommand,
         Path fifo,
         @DefaultValue("ffmpeg") String ffmpeg,
@@ -53,6 +60,10 @@ public record JazzclubProperties(
         if (history < 0) {
             throw new IllegalArgumentException("history must not be negative, was " + history);
         }
+        if (bufferSeconds < 0 || bufferSeconds > 600) {
+            throw new IllegalArgumentException("buffer_seconds must be between 0 and 600, was " + bufferSeconds);
+        }
+        PcmFormat.of(sampleRate); // validates
         if (maxRetry < 1) {
             throw new IllegalArgumentException("max_retry must be at least 1, was " + maxRetry);
         }
