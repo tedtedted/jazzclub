@@ -108,7 +108,7 @@ public final class ControlFifo implements AutoCloseable {
     }
 
     /** A named pipe is neither file, directory nor link; together with "exists" that is telling enough. */
-    static boolean isFifo(Path path) {
+    public static boolean isFifo(Path path) {
         try {
             Object mode = Files.getAttribute(path, "unix:mode", LinkOption.NOFOLLOW_LINKS);
             return mode instanceof Integer m && (m & 0170000) == 0010000;

@@ -34,6 +34,9 @@ class JazzclubPropertiesTest {
             assertThat(properties.autostartStation()).isNull();
             assertThat(properties.eventCommand()).isNull();
             assertThat(properties.fifo()).isNull();
+            assertThat(properties.bufferSeconds()).isEqualTo(5);
+            assertThat(properties.sampleRate()).isZero();
+            assertThat(properties.audioPipe()).isNull();
             assertThat(properties.sort()).isEqualTo(com.tedredington.jazzclub.app.StationSort.NAME_AZ);
             assertThat(properties.autoselect()).isTrue();
             assertThat(properties.ffmpeg()).isEqualTo("ffmpeg");
@@ -69,6 +72,10 @@ class JazzclubPropertiesTest {
                 assertThat(context).getFailure().rootCause().hasMessageContaining("history"));
         runner.withPropertyValues("jazzclub.max-retry=0").run(context ->
                 assertThat(context).getFailure().rootCause().hasMessageContaining("max_retry"));
+        runner.withPropertyValues("jazzclub.buffer-seconds=-1").run(context ->
+                assertThat(context).getFailure().rootCause().hasMessageContaining("buffer_seconds"));
+        runner.withPropertyValues("jazzclub.sample-rate=7").run(context ->
+                assertThat(context).getFailure().rootCause().hasMessageContaining("sample_rate"));
         runner.withPropertyValues("jazzclub.audio-quality=ultra").run(context ->
                 assertThat(context).hasFailed());
     }

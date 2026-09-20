@@ -329,6 +329,36 @@ class StreamingAudioPlayerTest {
     }
 
     @Test
+    void aPrefetchingDecoderPlaysTheSameAudioAndIsClosedProperly() throws InterruptedException {
+        FakeDecoder inner = new FakeDecoder(new ByteArrayInputStream(new byte[40_000]), null);
+        Decoder.Factory plain = url -> inner;
+        decoders = plain.prefetching(64 * 1024);
+
+        player().play(URL, 0);
+
+        assertThat(awaitFinished().result().outcome()).isEqualTo(PlaybackResult.Outcome.COMPLETED);
+        assertThat(sink.bytesWritten.get()).isEqualTo(40_000);
+        assertThat(inner.closed).isTrue();
+    }
+
+    @Test
+    void aPrefetchingDecoderStillReportsTheDecodersFailure() throws InterruptedException {
+        Decoder.Factory plain = url -> new FakeDecoder(new ByteArrayInputStream(new byte[100]), "Decoding failed: 403");
+        decoders = plain.prefetching(1024);
+
+        player().play(URL, 0);
+
+        assertThat(awaitFinished().result().detail()).isEqualTo("Decoding failed: 403");
+    }
+
+    @Test
+    void aBufferOfZeroMeansNoPrefetching() {
+        Decoder.Factory plain = url -> null;
+
+        assertThat(plain.prefetching(0)).isSameAs(plain);
+    }
+
+    @Test
     void stopWithNothingPlayingIsHarmless() {
         player().stop();
 

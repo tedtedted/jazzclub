@@ -214,6 +214,9 @@ act_songban = disabled
 | `password_command` | | A shell command that prints the password. Used when `password` is not set. |
 | `audio_quality` | `high` | `low`, `medium` or `high`. Free accounts get AAC at every level. |
 | `volume` | what you left it at | Initial volume correction in dB. Usually between -30 and +5. |
+| `buffer_seconds` | `5` | How much audio to keep decoded ahead of what you hear, to bridge network hiccups. |
+| `sample_rate` | `0` | Output sample rate in Hz. `0` keeps Pandora's 44100. |
+| `audio_pipe` | | Write raw audio to this named pipe instead of playing it, see [Multi-room audio](#multi-room-audio). |
 | `gain_mul` | `1.0` | How much of Pandora's per-track loudness correction to apply; `0.0` turns it off. |
 | `autostart_station` | the last one played | Station id to play right away. Press `i` to see the id of the current station. |
 | `sort` | `name_az` | Order of the station list: `name_az`, `name_za`, or with QuickMix pinned last (`quickmix_01_name_az`, `quickmix_01_name_za`) or first (`quickmix_10_name_az`, `quickmix_10_name_za`). |
@@ -322,6 +325,26 @@ Two differences from pianobar, both deliberate: scripts run in the background, o
 order, so a slow scrobbler never delays the music or a key press; and their output is discarded
 rather than printed into the player. A script that runs longer than 30 seconds is killed.
 
+### Multi-room audio
+
+With `audio_pipe`, jazzclub does not play through the sound card but writes the decoded audio to a
+named pipe, where a program like [Snapcast](https://github.com/badaix/snapcast) can pick it up and
+distribute it around the house.
+
+```sh
+mkfifo /tmp/snapfifo
+```
+
+```ini
+audio_pipe = /tmp/snapfifo
+sample_rate = 48000
+```
+
+The format is signed 16 bit little-endian stereo at `sample_rate` (44100 if not set), which in
+Snapcast's terms is `sampleformat=48000:16:2`. Volume keys and Pandora's loudness correction still
+work; they are applied to the samples. If nothing reads the pipe, the song waits; you can still
+skip or quit.
+
 ### Remote control
 
 jazzclub can be driven from outside through a named pipe: whatever is written to it is treated
@@ -403,7 +426,6 @@ Run `jazzclub -vv` and look at what it logs. Auth tokens and your password are n
 
 jazzclub 0.1 has all of pianobar's keys except the debug dump (`$`). Not there yet:
 
-- `audio_pipe`, `sample_rate`, `buffer_seconds`
 
 Deliberately different:
 

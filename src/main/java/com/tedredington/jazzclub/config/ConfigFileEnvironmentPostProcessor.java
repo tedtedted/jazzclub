@@ -64,7 +64,7 @@ public class ConfigFileEnvironmentPostProcessor implements EnvironmentPostProces
             } else if (key == null) {
                 log.info("Ignoring unsupported setting '" + fileKey + "' in " + file);
             } else if (!key.isSecret()) {
-                properties.put(key.property(), value);
+                properties.put(key.property(), key.resolve(value, System.getProperty("user.home")));
             }
         });
 
