@@ -1,0 +1,41 @@
+# Maintainer: Ted Redington <ted@tedredington.com>
+#
+# Generated from packaging/arch/PKGBUILD.in by scripts/render-pkgbuild.sh; do not edit by hand.
+#
+# Installs the native binary published with each GitHub release; nothing is compiled here.
+# While the repository is private makepkg cannot download the sources itself. Put them next to this
+# file first, makepkg then uses them as they are:
+#
+#   gh release download v@VERSION@ -R tedtedted/jazzclub -p PKGBUILD -p "*linux-$(uname -m).tar.gz"
+#   makepkg -si
+
+pkgname=jazzclub-bin
+# the release version; pkgver may not contain a hyphen, which pre-releases such as 0.2.0-rc.1 have
+_ver=@VERSION@
+pkgver=@PKGVER@
+pkgrel=1
+pkgdesc="Console client for Pandora internet radio, a port of pianobar"
+arch=('x86_64' 'aarch64')
+url="https://github.com/tedtedted/jazzclub"
+license=('MIT')
+depends=('ffmpeg' 'alsa-lib' 'glibc' 'zlib')
+optdepends=('pipewire-alsa: sound through PipeWire'
+            'pulseaudio-alsa: sound through PulseAudio')
+provides=('jazzclub')
+conflicts=('jazzclub')
+# A GraalVM native image carries its heap snapshot inside the executable. Leave it exactly as built.
+options=('!strip' '!debug')
+source_x86_64=("jazzclub-${_ver}-linux-x86_64.tar.gz::${url}/releases/download/v${_ver}/jazzclub-${_ver}-linux-x86_64.tar.gz")
+source_aarch64=("jazzclub-${_ver}-linux-aarch64.tar.gz::${url}/releases/download/v${_ver}/jazzclub-${_ver}-linux-aarch64.tar.gz")
+sha256sums_x86_64=('@SHA256_X86_64@')
+sha256sums_aarch64=('@SHA256_AARCH64@')
+
+package() {
+  cd "jazzclub-${_ver}-linux-${CARCH}"
+  install -Dm755 bin/jazzclub "${pkgdir}/usr/bin/jazzclub"
+  install -Dm644 share/bash-completion/completions/jazzclub \
+    "${pkgdir}/usr/share/bash-completion/completions/jazzclub"
+  install -Dm644 share/doc/jazzclub/README.md "${pkgdir}/usr/share/doc/jazzclub/README.md"
+  install -Dm644 share/licenses/jazzclub/LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 share/licenses/jazzclub/NOTICE "${pkgdir}/usr/share/licenses/${pkgname}/NOTICE"
+}

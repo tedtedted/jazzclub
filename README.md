@@ -49,11 +49,20 @@ Packages are on the [releases page](https://github.com/tedtedted/jazzclub/releas
 sudo apt install ./jazzclub_0.1.0_amd64.deb
 ```
 
-**Arch Linux** (`x86_64` and `aarch64`)
+**Arch Linux** (`x86_64` and `aarch64`), with the `PKGBUILD` that comes with every release:
 
 ```sh
-sudo pacman -U jazzclub-0.1.0-1-x86_64.pkg.tar.zst
+gh release download v0.1.0 -R tedtedted/jazzclub -p PKGBUILD -p "*linux-$(uname -m).tar.gz"
+makepkg -si
 ```
+
+`makepkg` checks the tarball against the checksum pinned in the `PKGBUILD`, builds the package
+`jazzclub-bin` and installs it together with `ffmpeg` and `alsa-lib`. For sound through PipeWire or
+PulseAudio also install `pipewire-alsa` or `pulseaudio-alsa`; pacman lists them as optional
+dependencies. A ready-made `jazzclub-0.1.0-1-x86_64.pkg.tar.zst` for `pacman -U` is attached as well.
+
+**Any other Linux** with glibc 2.34 or newer: unpack `jazzclub-0.1.0-linux-x86_64.tar.gz` and copy
+`bin/jazzclub` onto your `PATH`. You need `ffmpeg` and the ALSA library.
 
 **macOS** on Apple Silicon
 
@@ -68,7 +77,7 @@ Every release comes with `SHA256SUMS-*` files; check your download with `sha256s
 `shasum -a 256 -c`). The Linux packages install tab completion for bash; the macOS archive has it
 under `share/bash-completion/`.
 
-A Homebrew tap and an AUR package are planned. To build from source instead, see
+A Homebrew tap is planned, and the `PKGBUILD` is ready to go to the AUR once the repository is public. To build from source instead, see
 [Building](#building).
 
 ## Quick start

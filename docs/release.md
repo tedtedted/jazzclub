@@ -58,6 +58,8 @@ Each release publishes:
 
 - Debian packages: `jazzclub_<version>_amd64.deb`, `jazzclub_<version>_arm64.deb`
 - Arch packages: `jazzclub-<version>-1-x86_64.pkg.tar.zst`, `jazzclub-<version>-1-aarch64.pkg.tar.zst`
+- Linux tarballs: `jazzclub-<version>-linux-x86_64.tar.gz`, `jazzclub-<version>-linux-aarch64.tar.gz`
+- `PKGBUILD` for the Arch package `jazzclub-bin`, which installs from those tarballs
 - macOS archive: `jazzclub-<version>-macos-<arch>.tar.gz`
 - `SHA256SUMS` files for each package build
 
@@ -69,6 +71,27 @@ The Linux binaries are built on Ubuntu 22.04 on purpose. A binary only starts on
 new as the one it was linked against, and 22.04's glibc 2.35 is older than Debian 12's 2.36. Moving the
 build to a newer runner silently drops Debian stable; the smoke test prints the glibc each binary needs.
 
+## The Arch PKGBUILD
+
+`packaging/arch/PKGBUILD.in` is a template. For every release `scripts/render-pkgbuild.sh` fills in the
+version and the checksums of the two Linux tarballs, and the `pkgbuild` job of the release workflow
+proves the result inside an `archlinux` container: `makepkg`, `namcap` with no errors allowed,
+`pacman -U`, and the same smoke test the binaries get. A `PKGBUILD` that does not build never reaches
+a release.
+
+It follows the AUR's `-bin` convention: nothing is compiled, `provides` and `conflicts` name
+`jazzclub`, and `pkgver` replaces the hyphen of a pre-release (`0.2.0-rc.1` becomes `0.2.0_rc.1`)
+because makepkg does not allow one. While the repository is private `makepkg` cannot download the
+tarball, so it is fetched with `gh release download` first; makepkg uses a source file it finds next
+to the `PKGBUILD`. Publishing to the AUR later means pushing the rendered `PKGBUILD` and the
+`.SRCINFO` the workflow also produces.
+
+To rehearse without the macOS build, which is billed at ten times the rate on a private repository:
+
+```sh
+gh workflow run release.yml --ref <branch> -f version=0.0.0-test -f macos=false
+```
+
 ## Later hardening
 
 Before a `1.0.0` release, add:
@@ -76,5 +99,5 @@ Before a `1.0.0` release, add:
 - signed Git tags and release artifact attestations
 - macOS x86_64 builds if Intel Mac support is still desired
 - Homebrew tap automation
-- AUR `PKGBUILD` publishing in addition to the binary Arch package
+- pushing the generated `PKGBUILD` and `.SRCINFO` to the AUR automatically, once the repository is public
 - generated changelog sections from pull request labels

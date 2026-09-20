@@ -10,6 +10,10 @@ on:
         description: Version to build, without the leading v
         required: true
         type: string
+      macos:
+        description: Also build the macOS package (billed at 10x on private repositories)
+        type: boolean
+        default: true
 
 # read-only by default; only the publish job may write, and only to create the release
 permissions:
@@ -107,23 +111,39 @@ jobs:
             runner: macos-latest
             os: macos
     steps:
+      # GitHub cannot leave out single matrix entries up front, so a rehearsal without macOS bows out here
+      - name: Decide whether to build
+        id: gate
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "macos" && "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.macos }}" == "false" ]]; then
+            echo "Skipping the macOS package in this rehearsal."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.build == 'true'
 
       - uses: graalvm/setup-graalvm@v1
+        if: steps.gate.outputs.build == 'true'
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: graalvm-community
           cache: maven
 
       - name: Install packaging tools
-        if: matrix.os == 'linux'
+        if: steps.gate.outputs.build == 'true' && matrix.os == 'linux'
         run: sudo apt-get update && sudo apt-get install -y zstd
 
       - name: Build native binary
+        if: steps.gate.outputs.build == 'true'
         run: ./mvnw -B -ntp -Pnative -DskipTests -Drevision=${{ needs.version.outputs.version }} native:compile
 
       # shared with ci.yml; also checks exit codes, the size budget and, on Linux, the glibc needed
       - name: Smoke test binary
+        if: steps.gate.outputs.build == 'true'
         run: scripts/smoke-test.sh target/jazzclub "${{ needs.version.outputs.version }}"
 
       - name: Build Linux packages
@@ -132,19 +152,23 @@ jobs:
         run: |
           scripts/package-deb.sh "${{ needs.version.outputs.version }}" "${{ matrix.deb_arch }}" target/jazzclub dist
           scripts/package-arch.sh "${{ needs.version.outputs.version }}" "${{ matrix.arch_arch }}" target/jazzclub dist
+          # what packaging/arch/PKGBUILD.in installs from, and a download for every other distribution
+          scripts/package-linux.sh "${{ needs.version.outputs.version }}" "${{ matrix.arch_arch }}" target/jazzclub dist
 
       - name: Build macOS package
-        if: matrix.os == 'macos'
+        if: steps.gate.outputs.build == 'true' && matrix.os == 'macos'
         shell: bash
         run: scripts/package-macos.sh "${{ needs.version.outputs.version }}" "$(uname -m)" target/jazzclub dist
 
       - name: Checksums
+        if: steps.gate.outputs.build == 'true'
         shell: bash
         run: |
           cd dist
           shasum -a 256 * > SHA256SUMS-${{ matrix.package }}
 
       - name: Upload package artifacts
+        if: steps.gate.outputs.build == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.package }}
@@ -152,9 +176,71 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  pkgbuild:
+    name: Arch PKGBUILD
+    needs: [version, package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: packages-deb-*
+          merge-multiple: true
+
+      - name: Render PKGBUILD
+        run: |
+          mkdir -p aur
+          scripts/render-pkgbuild.sh "${{ needs.version.outputs.version }}" dist > aur/PKGBUILD
+          cp dist/jazzclub-${{ needs.version.outputs.version }}-linux-x86_64.tar.gz aur/
+          cat aur/PKGBUILD
+
+      # The real thing: makepkg, namcap and an installation on Arch Linux. makepkg finds the tarball next
+      # to the PKGBUILD and checks it against the pinned checksum instead of downloading it.
+      - name: Build, lint and install on Arch Linux
+        run: |
+          docker run --rm -v "$PWD/aur:/aur" -v "$PWD/scripts:/scripts:ro" archlinux:latest bash -euo pipefail -c '
+            pacman -Syu --noconfirm --needed base-devel namcap > /dev/null
+            echo "== the dependencies named in the PKGBUILD exist in the repositories"
+            pacman -Si ffmpeg alsa-lib glibc zlib pipewire-alsa pulseaudio-alsa | grep -E "^Name"
+            useradd -m builder
+            chown -R builder /aur
+            cd /aur
+            echo "== makepkg"
+            su builder -c "makepkg --nodeps --noconfirm"
+            su builder -c "makepkg --printsrcinfo" > .SRCINFO
+            echo "== namcap"
+            namcap PKGBUILD
+            namcap jazzclub-bin-*.pkg.tar.zst | tee namcap.txt
+            # not "! grep": a command negated with ! is exempt from set -e and could never fail the job
+            if grep -E " E: " namcap.txt; then echo "namcap reports errors" >&2; exit 1; fi
+            echo "== contents"
+            pacman -Qlp jazzclub-bin-*.pkg.tar.zst
+            echo "== install and run"
+            pacman -U --noconfirm --nodeps --nodeps jazzclub-bin-*.pkg.tar.zst
+            /scripts/smoke-test.sh /usr/bin/jazzclub "${{ needs.version.outputs.version }}"
+            pacman -Qi jazzclub-bin | grep -E "^(Name|Version|Depends On|Optional Deps|Provides|Conflicts)"
+          '
+
+      - name: Collect
+        run: |
+          mkdir -p out
+          cp aur/PKGBUILD aur/.SRCINFO out/
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-pkgbuild
+          path: out/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
   publish:
     name: Publish GitHub release
-    needs: [version, package]
+    needs: [version, package, pkgbuild]
     runs-on: ubuntu-24.04
     if: github.event_name != 'workflow_dispatch'
     permissions:
