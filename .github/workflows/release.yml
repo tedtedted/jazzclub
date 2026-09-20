@@ -204,7 +204,7 @@ jobs:
           docker run --rm -v "$PWD/aur:/aur" -v "$PWD/scripts:/scripts:ro" archlinux:latest bash -euo pipefail -c '
             pacman -Syu --noconfirm --needed base-devel namcap > /dev/null
             echo "== the dependencies named in the PKGBUILD exist in the repositories"
-            pacman -Si ffmpeg alsa-lib glibc zlib pipewire-alsa pulseaudio-alsa | grep -E "^Name"
+            pacman -Si ffmpeg alsa-lib glibc zlib pipewire-alsa pulseaudio-alsa bash-completion | grep -E "^Name"
             useradd -m builder
             chown -R builder /aur
             cd /aur

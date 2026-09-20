@@ -18,13 +18,18 @@ pkgdesc="Console client for Pandora internet radio, a port of pianobar"
 arch=('x86_64' 'aarch64')
 url="https://github.com/tedtedted/jazzclub"
 license=('MIT')
+# namcap says ffmpeg and alsa-lib "may not be needed". They are: namcap only sees libraries linked at
+# build time, while jazzclub runs ffmpeg as a program and Java Sound opens ALSA at run time.
 depends=('ffmpeg' 'alsa-lib' 'glibc' 'zlib')
 optdepends=('pipewire-alsa: sound through PipeWire'
-            'pulseaudio-alsa: sound through PulseAudio')
+            'pulseaudio-alsa: sound through PulseAudio'
+            'bash-completion: tab completion in bash')
 provides=('jazzclub')
 conflicts=('jazzclub')
 # A GraalVM native image carries its heap snapshot inside the executable. Leave it exactly as built.
 options=('!strip' '!debug')
+# The architecture is spelled out rather than written as $CARCH, which namcap suggests: .SRCINFO is
+# generated on one machine and would then name that machine's tarball for both architectures.
 source_x86_64=("jazzclub-${_ver}-linux-x86_64.tar.gz::${url}/releases/download/v${_ver}/jazzclub-${_ver}-linux-x86_64.tar.gz")
 source_aarch64=("jazzclub-${_ver}-linux-aarch64.tar.gz::${url}/releases/download/v${_ver}/jazzclub-${_ver}-linux-aarch64.tar.gz")
 sha256sums_x86_64=('@SHA256_X86_64@')
