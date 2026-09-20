@@ -17,13 +17,19 @@ public final class FfmpegDecoder implements Decoder {
         this.process = process;
     }
 
-    public static Decoder.Factory factory(String ffmpegExecutable) {
-        return audioUrl -> open(ffmpegExecutable, audioUrl);
+    /** @param httpProxy value for ffmpeg's {@code http_proxy} environment variable, or {@code null} */
+    public static Decoder.Factory factory(String ffmpegExecutable, String httpProxy) {
+        return audioUrl -> open(ffmpegExecutable, audioUrl, httpProxy);
     }
 
-    private static Decoder open(String ffmpegExecutable, URI audioUrl) throws IOException {
+    private static Decoder open(String ffmpegExecutable, URI audioUrl, String httpProxy) throws IOException {
         try {
-            return new FfmpegDecoder(new ProcessBuilder(FfmpegCommand.decodeToPcm(ffmpegExecutable, audioUrl)).start());
+            ProcessBuilder builder = new ProcessBuilder(FfmpegCommand.decodeToPcm(ffmpegExecutable, audioUrl));
+            if (httpProxy != null) {
+                // ffmpeg has no option for this; the environment variable is what it reads
+                builder.environment().put("http_proxy", httpProxy);
+            }
+            return new FfmpegDecoder(builder.start());
         } catch (IOException e) {
             throw new IOException("Could not start '" + ffmpegExecutable + "'. jazzclub needs ffmpeg to decode audio: "
                     + "install it with your package manager (brew install ffmpeg, pacman -S ffmpeg, "

@@ -250,6 +250,15 @@ the message goes; a value without `%s` is ignored.
 
 ANSI colour codes work inside format strings, exactly as in pianobar.
 
+#### Network
+
+| Key | Meaning |
+|---|---|
+| `proxy` | `http://user:password@host:port/`. Used for everything, the audio included. Defaults to the `http_proxy` environment variable. Only HTTP proxies are supported, not SOCKS. |
+| `control_proxy` | The same, but only for talking to Pandora; the audio is fetched directly. This is the one to use from outside the United States, as only the control connection is checked. |
+| `bind_to` | Send the control connection through a particular network interface or local address: `if!tun0`, `host!192.0.2.1`, or just the name. With a VPN set up not to take over the default route, this does the job of `control_proxy`. |
+| `ca_bundle` | A PEM file of certificate authorities to trust *instead of* the system's, for networks that intercept TLS with a private authority. |
+
 The connection settings `rpc_host`, `rpc_tls_port`, `partner_user`, `partner_password`, `device`,
 `encrypt_password` and `decrypt_password` are supported too and default to pianobar's values. You
 will not normally need them.
@@ -394,7 +403,7 @@ Run `jazzclub -vv` and look at what it logs. Auth tokens and your password are n
 
 jazzclub 0.1 has all of pianobar's keys except the debug dump (`$`). Not there yet:
 
-- `proxy`, `control_proxy`, `bind_to`, `ca_bundle`, `sort`, `audio_pipe`, `sample_rate`
+- `audio_pipe`, `sample_rate`, `buffer_seconds`
 
 Deliberately different:
 

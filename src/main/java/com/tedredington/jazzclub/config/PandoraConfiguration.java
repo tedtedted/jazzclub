@@ -3,6 +3,7 @@ package com.tedredington.jazzclub.config;
 import java.net.http.HttpClient;
 import java.time.InstantSource;
 
+import com.tedredington.jazzclub.network.HttpClientFactory;
 import com.tedredington.jazzclub.pandora.DefaultPandoraClient;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.PandoraTransport;
@@ -25,7 +26,8 @@ class PandoraConfiguration {
 
     @Bean
     PandoraTransport pandoraTransport(RestClient.Builder builder, PandoraProperties properties) {
-        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(properties.timeout()).build();
+        HttpClient httpClient = HttpClientFactory.create(properties.timeout(),
+                properties.apiProxy(System.getenv("http_proxy")), properties.bindTo(), properties.caBundle());
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(properties.timeout());
         return new RestClientPandoraTransport(builder.requestFactory(requestFactory).build());

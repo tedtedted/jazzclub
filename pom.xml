@@ -25,6 +25,8 @@
         <jacoco.version>0.8.15</jacoco.version>
         <!-- minimum line coverage enforced by `mvn verify` -->
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
+        <!-- filled in by JaCoCo; defined so surefire's argLine still resolves with -Djacoco.skip -->
+        <argLine/>
     </properties>
 
     <dependencies>
@@ -113,6 +115,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <!--
+                      The JDK reads this switch once per JVM; main() sets it before anything else (see
+                      HttpClientFactory.allowProxyCredentialsForHttps). Tests do not go through main().
+                    -->
+                    <argLine>@{argLine} -Djdk.http.auth.tunneling.disabledSchemes=</argLine>
                     <systemPropertyVariables>
                         <!-- tests must never read the developer's real ~/.config/jazzclub/config -->
                         <jazzclub.config-file>${project.build.directory}/no-such-config</jazzclub.config-file>
@@ -175,6 +182,8 @@
                         <buildArg>--install-exit-handlers</buildArg>
                         <!-- JLine loads its JNI library; declare that intent instead of getting a warning -->
                         <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
+                        <!-- see HttpClientFactory.allowProxyCredentialsForHttps: may be read at build time -->
+                        <buildArg>-Djdk.http.auth.tunneling.disabledSchemes=</buildArg>
                     </buildArgs>
                 </configuration>
             </plugin>

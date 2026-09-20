@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import com.tedredington.jazzclub.cli.CommandLineParser;
 import com.tedredington.jazzclub.cli.LaunchOptions;
+import com.tedredington.jazzclub.network.HttpClientFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class JazzclubApplication {
 
     public static void main(String[] args) {
+        HttpClientFactory.allowProxyCredentialsForHttps();
         CommandLineParser parser = new CommandLineParser(
                 new PrintWriter(System.out, true), new PrintWriter(System.err, true));
         Optional<LaunchOptions> options = parser.parse(args);

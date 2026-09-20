@@ -25,6 +25,7 @@ import com.tedredington.jazzclub.config.file.XdgDirectories;
 import com.tedredington.jazzclub.credentials.CredentialsProvider;
 import com.tedredington.jazzclub.event.Event;
 import com.tedredington.jazzclub.event.EventQueue;
+import com.tedredington.jazzclub.network.ProxySettings;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.player.AudioPlayer;
 import com.tedredington.jazzclub.player.StreamingAudioPlayer;
@@ -87,10 +88,12 @@ class AppConfiguration {
     /** Lazy: nothing touches the sound system until the first song. */
     @Bean
     @Lazy
-    AudioPlayer audioPlayer(JazzclubProperties properties, EventQueue events) {
+    AudioPlayer audioPlayer(JazzclubProperties properties, PandoraProperties pandora, EventQueue events) {
         JavaSoundNativeSupport.prepare(XdgDirectories.system().cacheDirectory().resolve("lib"));
+        ProxySettings streamProxy = pandora.streamProxy(System.getenv("http_proxy"));
         return new StreamingAudioPlayer(
-                FfmpegDecoder.factory(properties.ffmpeg()),
+                FfmpegDecoder.factory(properties.ffmpeg(),
+                        streamProxy == null ? null : streamProxy.toEnvironmentValue()),
                 JavaSoundAudioSink::new,
                 (id, result) -> events.publish(new Event.TrackFinished(id, result)),
                 properties.volume(),

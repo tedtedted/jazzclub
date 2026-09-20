@@ -49,6 +49,32 @@ class PandoraPropertiesTest {
     }
 
     @Test
+    void controlProxyCoversOnlyTheApiAndProxyCoversBoth() {
+        runner.withPropertyValues(
+                        "jazzclub.pandora.proxy=http://global.example:3128",
+                        "jazzclub.pandora.control-proxy=http://control.example:9090")
+                .run(context -> {
+                    PandoraProperties properties = context.getBean(PandoraProperties.class);
+                    assertThat(properties.apiProxy(null).host()).isEqualTo("control.example");
+                    assertThat(properties.streamProxy(null).host()).isEqualTo("global.example");
+                });
+    }
+
+    @Test
+    void theEnvironmentVariableIsTheLastResortAndConfiguredProxiesBeatIt() {
+        runner.run(context -> {
+            PandoraProperties properties = context.getBean(PandoraProperties.class);
+            assertThat(properties.apiProxy(null)).isNull();
+            assertThat(properties.streamProxy("")).isNull();
+            assertThat(properties.apiProxy("http://env.example:8080").host()).isEqualTo("env.example");
+            assertThat(properties.streamProxy("http://env.example:8080").port()).isEqualTo(8080);
+        });
+        runner.withPropertyValues("jazzclub.pandora.proxy=http://global.example:3128").run(context ->
+                assertThat(context.getBean(PandoraProperties.class).apiProxy("http://env.example:1").host())
+                        .isEqualTo("global.example"));
+    }
+
+    @Test
     void nonsenseValuesFailStartupWithAReadableReason() {
         runner.withPropertyValues("jazzclub.pandora.rpc-tls-port=70000").run(context ->
                 assertThat(context).getFailure().rootCause().hasMessageContaining("rpc_tls_port must be between"));
