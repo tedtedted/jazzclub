@@ -1,6 +1,6 @@
 # Last.fm scrobbling: plan
 
-Status: **proposal**, nothing implemented yet. Discuss on the PR; this file becomes the README section
+Status: **agreed** (decisions at the end), nothing implemented yet. Discuss on the PR; this file becomes the README section
 and is deleted once the feature ships.
 
 ## Why build it in
