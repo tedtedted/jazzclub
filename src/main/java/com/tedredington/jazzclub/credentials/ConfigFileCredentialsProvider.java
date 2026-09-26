@@ -15,7 +15,7 @@ public final class ConfigFileCredentialsProvider implements CredentialsProvider 
 
     private final Supplier<ParsedConfig> config;
     private final Path configFile;
-    private final CommandRunner commandRunner;
+    private final ConfigFilePassword password;
 
     /**
      * @param config     read lazily and on every call, so an edited file is picked up on re-login
@@ -24,7 +24,7 @@ public final class ConfigFileCredentialsProvider implements CredentialsProvider 
     public ConfigFileCredentialsProvider(Supplier<ParsedConfig> config, Path configFile, CommandRunner commandRunner) {
         this.config = config;
         this.configFile = configFile;
-        this.commandRunner = commandRunner;
+        this.password = new ConfigFilePassword(ConfigKey.PASSWORD, ConfigKey.PASSWORD_COMMAND, commandRunner);
     }
 
     @Override
@@ -37,19 +37,7 @@ public final class ConfigFileCredentialsProvider implements CredentialsProvider 
     }
 
     private String password(ParsedConfig parsed) {
-        String password = parsed.get(ConfigKey.PASSWORD.fileKey()).orElse("");
-        if (!password.isEmpty()) {
-            return password;
-        }
-        String command = parsed.get(ConfigKey.PASSWORD_COMMAND.fileKey()).orElse("");
-        if (command.isBlank()) {
-            throw new CredentialsException("No password configured. Add either 'password = ...' or "
-                    + "'password_command = ...' to " + configFile);
-        }
-        String firstLine = commandRunner.run(command).lines().findFirst().orElse("");
-        if (firstLine.isEmpty()) {
-            throw new CredentialsException("password_command printed nothing");
-        }
-        return firstLine;
+        return password.find(parsed).orElseThrow(() -> new CredentialsException(
+                "No password configured. Add either 'password = ...' or 'password_command = ...' to " + configFile));
     }
 }

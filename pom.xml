@@ -23,6 +23,7 @@
         <jline.version>4.4.5</jline.version>
         <picocli.version>4.7.7</picocli.version>
         <jacoco.version>0.8.15</jacoco.version>
+        <archunit.version>1.5.1</archunit.version>
         <!-- minimum line coverage enforced by `mvn verify` -->
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
         <!-- filled in by JaCoCo; defined so surefire's argLine still resolves with -Djacoco.skip -->
@@ -64,6 +65,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-restclient-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

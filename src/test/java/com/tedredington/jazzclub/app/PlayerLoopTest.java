@@ -27,6 +27,7 @@ import com.tedredington.jazzclub.testsupport.RecordingConsole;
 import com.tedredington.jazzclub.testsupport.RecordingEvents;
 import com.tedredington.jazzclub.testsupport.ScriptedPrompter;
 import com.tedredington.jazzclub.testsupport.StubPandoraClient;
+import com.tedredington.jazzclub.ui.MessageType;
 import com.tedredington.jazzclub.ui.Renderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -242,6 +243,18 @@ class PlayerLoopTest {
         loop(null).run();
 
         assertThat(console.output()).doesNotContain("#   ");
+    }
+
+    @Test
+    void noticesFromBackgroundThreadsArePrintedOnALineOfTheirOwn() {
+        client.stations = List.of(EVANS);
+        prompter.answer("");
+        events.publish(new Event.Notice(MessageType.INFO, "Last.fm: scrobbling as ted."));
+        events.publish(new Event.KeyPressed('q'));
+
+        loop(null).run();
+
+        assertThat(console.output()).contains("(i) Last.fm: scrobbling as ted.\n");
     }
 
     @Test

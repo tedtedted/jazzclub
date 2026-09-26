@@ -57,6 +57,7 @@ public final class EventQueuePrompter implements Prompter {
                         return Optional.empty();
                     }
                     case Event.TrackFinished finished -> deferred.add(finished);
+                    case Event.Notice notice -> deferred.add(notice);
                 }
             }
         } catch (InterruptedException e) {
@@ -100,6 +101,7 @@ public final class EventQueuePrompter implements Prompter {
                         return Optional.empty();
                     }
                     case Event.TrackFinished finished -> deferred.add(finished);
+                    case Event.Notice notice -> deferred.add(notice);
                 }
             }
         } catch (InterruptedException e) {

@@ -11,7 +11,8 @@ class ConfigKeyTest {
     @Test
     void credentialsAreSecretsAndHaveNoSpringProperty() {
         assertThat(Arrays.stream(ConfigKey.values()).filter(ConfigKey::isSecret))
-                .containsExactlyInAnyOrder(ConfigKey.USER, ConfigKey.PASSWORD, ConfigKey.PASSWORD_COMMAND);
+                .containsExactlyInAnyOrder(ConfigKey.USER, ConfigKey.PASSWORD, ConfigKey.PASSWORD_COMMAND,
+                        ConfigKey.LASTFM_PASSWORD, ConfigKey.LASTFM_PASSWORD_COMMAND);
     }
 
     @Test

@@ -31,9 +31,12 @@ public final class UserConfigFile {
 
         ParsedConfig parsed = parser.parse(lines, file.toString());
         List<String> warnings = new ArrayList<>(parsed.warnings());
-        if (parsed.get("password").isPresent() && isReadableByOthers(file)) {
-            warnings.add(file + " contains your password and is readable by other users. Fix with: chmod 600 "
-                    + file + "  (or use password_command instead)");
+        for (ConfigKey secret : List.of(ConfigKey.PASSWORD, ConfigKey.LASTFM_PASSWORD)) {
+            if (parsed.get(secret.fileKey()).isPresent() && isReadableByOthers(file)) {
+                warnings.add(file + " contains a password and is readable by other users. Fix with: chmod 600 "
+                        + file + "  (or use " + secret.fileKey() + "_command instead)");
+                break;
+            }
         }
         return new ParsedConfig(parsed.entries(), warnings);
     }
