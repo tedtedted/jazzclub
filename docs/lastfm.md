@@ -65,8 +65,9 @@ jazzclub gives up quietly and asks again on the next start.
 - **Now playing**: your Last.fm profile shows the song as it starts.
 - **Scrobbles** follow Last.fm's rules: the song is longer than 30 seconds and you heard half of it or
   4 minutes, whichever comes first. Time spent paused does not count. Skipping early means no scrobble.
-- **Banned songs are never scrobbled**, even if you banned them late in the song. You told Pandora you
-  don't like it, so it should not show up in your listening history.
+- **Banned songs follow the same rules.** Last.fm is a record of what you listened to, liked or not, so
+  a song you banned after hearing enough of it is still scrobbled. Banning early skips the song, so it
+  isn't scrobbled.
 - **Loves**: `+` also loves the track on Last.fm. `-` removes a Last.fm love, if there is one. It can
   be turned off with `lastfm_love = 0`.
 - **Quitting mid-song** still scrobbles the song if you had heard enough of it.
@@ -162,7 +163,7 @@ The only changes outside the package are these:
 | `LastFmConfiguration` | `@ConditionalOnProperty("jazzclub.lastfm.user")`: with no user set, not a single Last.fm bean exists. |
 | `LastFmListener` | `@EventListener` for `PlayerEvent`. Turns `songstart`/`songfinish`/`songlove`/`songban` into work for the `Scrobbler`. Remembers each song's start time by track token. |
 | `Scrobbler` | Owns one worker thread (like `EventCommandRunner`): now-playing, scrobble, love. Flushes the queue, keeps track of online/offline state and reports changes. Drains for up to 5 s on exit. |
-| `ScrobbleRules` | Pure function: `(Song, Duration played, Rating) → boolean`. |
+| `ScrobbleRules` | Pure function: `(Song, Duration played) → boolean`. The rating plays no part. |
 | `Scrobble` | Record: artist, track, album, timestamp, duration. |
 | `ScrobbleQueue` | Pending scrobbles in `~/.local/state/jazzclub/lastfm-queue`, one JSON object per line, rewritten atomically like `StateFile`. Capped at 2,000 entries (about 5 days of listening), oldest dropped first. |
 | `LastFmSession` | Gets a session key (from the password or the browser), and saves and loads it in `~/.local/state/jazzclub/lastfm-session`, mode `600`. |
@@ -193,7 +194,7 @@ callback URL: none).
 
 ### Testing
 
-- `ScrobbleRules`: a table-driven test for the boundaries: 30 s, half the length, 4 minutes, banned,
+- `ScrobbleRules`: a table-driven test for the boundaries: 30 s, half the length, 4 minutes,
   zero-length songs.
 - `ApiSignature`: an example with a known result.
 - `LastFmClient`: `MockRestServiceServer`, like `RestClientPandoraTransportTest`. Covers every call, and
@@ -201,7 +202,8 @@ callback URL: none).
 - `Scrobbler`: fakes for the client and a clock. Covers the queue across a restart, batching above 50,
   dropping anything older than 14 days, the offline/back-online messages appearing once, and signing in
   again after code 9.
-- `LastFmListener`: sequences of `PlayerEvent`s: skip, ban, quit mid-song, love, `lastfm_love = 0`.
+- `LastFmListener`: sequences of `PlayerEvent`s: skip, early ban (no scrobble), late ban (scrobble
+  and unlove), quit mid-song, love, `lastfm_love = 0`.
 - Wiring: without `lastfm_user` the context has no Last.fm beans; with it, it does.
 - Starting with bad settings still plays music: a wrong password, a failing password command and a
   blank user each start the app, print the expected line (or nothing, for the blank user), and still
@@ -227,16 +229,16 @@ Each phase is one PR onto `main`, green CI, usable by itself.
 
 Phases 2–4 are independent of each other once phase 1 is in.
 
-## Decisions for Ted
+## Decisions
 
-1. **Scrobbling banned songs.** The plan says never. pianobar's old example script did the same.
-2. **`lastfm_love` default.** The plan says on. Surprising for people who use Pandora thumbs as "more
-   like this" rather than "I love this"?
-3. **Order of phases 3 and 4.** If you would rather never put a Last.fm password anywhere, browser
-   sign-in could become phase 1 and the password path phase 2.
-4. **Scrobbling from the `event_command` too.** Someone who sets both scrobbles twice. Options: do
-   nothing, mention it in the README, or warn at start-up when `event_command` is set together with
-   `lastfm_user`. The plan says mention it in the README, since jazzclub cannot know what a script does.
-5. **Out of scope for now:** Libre.fm and ListenBrainz. Libre.fm speaks the same API with a different
-   URL, so a `lastfm_url` setting would cover it later. ListenBrainz has its own API and would be a
-   second listener. Also out: a key to pause scrobbling for a while (a guest at the party).
+Agreed with Ted on 2026-09-26:
+
+1. **Banned songs** are scrobbled under the same rules as any other song. Last.fm records what you
+   heard, not what you liked.
+2. **`lastfm_love`** is on by default.
+3. **Signing in with a password comes first** (phase 1); browser sign-in follows in phase 3.
+4. **Scrobbling from `event_command` too** would scrobble every song twice. The README says so. There is
+   no start-up warning, because jazzclub cannot tell what a script does, and a warning would nag
+   everyone who uses `event_command` for notifications.
+5. **Out of scope:** Libre.fm, ListenBrainz and a key to pause scrobbling. They are parked in
+   tedtedted/jazzclub#6.
