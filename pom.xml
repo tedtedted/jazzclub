@@ -28,6 +28,12 @@
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
         <!-- filled in by JaCoCo; defined so surefire's argLine still resolves with -Djacoco.skip -->
         <argLine/>
+        <!--
+          jazzclub's Last.fm API account, compiled into application.properties. Read from .env at the
+          project root, which git ignores; empty without it, and the build then cannot scrobble.
+        -->
+        <LASTFM_API_KEY/>
+        <LASTFM_API_SECRET/>
     </properties>
 
     <dependencies>
@@ -78,6 +84,23 @@
     <build>
         <finalName>jazzclub</finalName>
         <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>properties-maven-plugin</artifactId>
+                <version>1.2.1</version>
+                <executions>
+                    <execution>
+                        <id>read-dotenv</id>
+                        <phase>initialize</phase>
+                        <goals><goal>read-project-properties</goal></goals>
+                        <configuration>
+                            <files><file>${project.basedir}/.env</file></files>
+                            <!-- no .env is fine: the build just has no Last.fm key -->
+                            <quiet>true</quiet>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

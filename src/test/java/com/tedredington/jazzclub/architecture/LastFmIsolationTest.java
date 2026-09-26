@@ -20,6 +20,8 @@ class LastFmIsolationTest {
     @Test
     void nothingOutsideTheLastFmPackageDependsOnIt() {
         noClasses().that().resideOutsideOfPackage("..lastfm..")
+                // Spring AOT's generated registrations (left in target/ by a native build) list every bean
+                .and().haveNameNotMatching(".*__(BeanFactoryRegistrations|BeanDefinitions)$")
                 .should().dependOnClassesThat().resideInAPackage("..lastfm..")
                 .check(PRODUCTION);
     }

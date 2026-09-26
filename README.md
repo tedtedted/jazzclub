@@ -530,6 +530,11 @@ sdk env install        # installs the JDK pinned in .sdkmanrc
 not need Maven installed. `./mvnw verify` runs the tests and fails below 80 % line coverage.
 `./mvnw package` builds a regular `target/jazzclub.jar` that runs on any Java 25 with `java -jar`.
 
+To build a jazzclub that can scrobble, copy `.env.example` to `.env` and fill in a
+[Last.fm API account](https://www.last.fm/api/account/create). Maven compiles the key into the
+build; `.env` itself is ignored by git and not read at run time. Without it everything else works,
+and setting `lastfm_user` only prints that this build has no Last.fm API key.
+
 Every push is tested by [GitHub Actions](.github/workflows/ci.yml). Release tags run the
 [release workflow](.github/workflows/release.yml), which builds native binaries, smoke-tests them,
 packages them for Debian, Arch Linux and macOS, writes checksums and publishes a GitHub release.
