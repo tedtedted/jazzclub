@@ -84,12 +84,30 @@ they are younger than Last.fm's 14-day limit.
 
 ### When something is wrong
 
-Last.fm problems never stop the music and never cost you your scrobbles. Every message says what to
-change:
+Last.fm problems never stop the music and never cost you your scrobbles. **No Last.fm setting, however
+wrong, stops jazzclub from starting or playing.**
+
+Problems are reported as **one line, printed whether or not `-v` is on**. The reasoning: whoever set
+`lastfm_user` asked for scrobbling. If it failed silently, they would discover it days later as a gap in
+their history, and anything older than Last.fm's 14-day limit would be gone for good. The line appears
+once and names the setting to fix. `-v` and `-vv` add the details, such as response codes and which
+step failed.
+
+- **Blank `lastfm_user`** means scrobbling is off, with no message, the same as a commented-out line.
+- **No password and no command** is not an error. It means sign in with the browser, see above.
+- **A failing `lastfm_password_command`** (wrong command, or you cancel the GPG prompt) turns scrobbling
+  off for this run, with a message. It must not end the program the way a failing Pandora
+  `password_command` does. Pandora cannot do without its password; the music can do without Last.fm.
+- **A wrong password** is tried **once per run**. Retrying risks getting the Last.fm account locked.
+- While signed out for any of these reasons, **scrobbles still go into the queue**. Fix the setting,
+  restart, and they are sent, as long as they are younger than 14 days.
+
+Every message says what to change:
 
 | Situation | Message |
 |---|---|
-| Wrong password | `/!\ Last.fm: wrong user name or password for 'ted'. Check lastfm_user and lastfm_password in ~/.config/jazzclub/config.` |
+| Wrong password | `/!\ Last.fm: wrong user name or password for 'ted', not scrobbling. Check lastfm_user and lastfm_password in ~/.config/jazzclub/config.` |
+| `lastfm_password_command` failed | `/!\ Last.fm: lastfm_password_command failed (exit status 2), not scrobbling.` |
 | Access revoked on last.fm | `/!\ Last.fm: jazzclub is no longer allowed to scrobble for you, signing in again...` followed by a new sign-in, using the password or the browser |
 | Both `lastfm_password` and `lastfm_password_command` set | the same rule as for Pandora: `lastfm_password` wins |
 | Signed in in the browser as someone else | `/!\ Last.fm: you allowed access as 'tedred', but lastfm_user is 'ted'. Scrobbling as 'tedred'.` |
@@ -156,7 +174,9 @@ What each kind of error does:
 
 - `TemporarilyUnavailable`: keep the scrobble queued and try again at the next song.
 - `AuthenticationFailed`: forget the session key and sign in again, once. If that fails too, report it
-  and stop scrobbling for this run, but keep the queue.
+  and stop signing in for this run, but keep queuing scrobbles.
+- `CredentialsException` from the shared password code: caught in `LastFmSession` and treated like
+  `AuthenticationFailed`. It must never reach the code that ends the program on a Pandora login failure.
 - `Rejected`: log it and drop that one scrobble. Retrying it will never succeed.
 
 ### The API key
@@ -183,6 +203,9 @@ callback URL: none).
   again after code 9.
 - `LastFmListener`: sequences of `PlayerEvent`s: skip, ban, quit mid-song, love, `lastfm_love = 0`.
 - Wiring: without `lastfm_user` the context has no Last.fm beans; with it, it does.
+- Starting with bad settings still plays music: a wrong password, a failing password command and a
+  blank user each start the app, print the expected line (or nothing, for the blank user), and still
+  queue scrobbles.
 - The ArchUnit dependency rule.
 - A native-image smoke test: one scrobble against a local stub, if the existing native test setup
   allows it.
@@ -195,7 +218,8 @@ Each phase is one PR onto `main`, green CI, usable by itself.
 
 1. **Scrobbling with a password.** Settings, `LastFmClient` (mobile session, now playing, scrobble),
    session key saved on disk, `ScrobbleRules`, `Scrobbler` without the offline queue, `Notice` event,
-   ArchUnit rule, README section.
+   ArchUnit rule, README section. All of the "never stops jazzclub" behaviour is in this phase.
+   Scrobbles made while signed out are only kept once phase 2 adds the queue.
 2. **Never lose a scrobble.** `ScrobbleQueue`, batching, the 14-day limit, the offline/back messages,
    signing in again after code 9.
 3. **Browser sign-in.** `auth.getToken`/`auth.getSession` with background polling, no password needed.
