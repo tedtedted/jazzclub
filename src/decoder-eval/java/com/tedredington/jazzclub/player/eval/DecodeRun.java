@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import com.tedredington.jazzclub.player.Decoder;
+import com.tedredington.jazzclub.player.PcmFormat;
 
 /**
  * One decode of one URL, read to the end the way jazzclub's player reads it.
@@ -23,6 +24,12 @@ import com.tedredington.jazzclub.player.Decoder;
  * @param totalMs     time from open() to the end of the PCM (not counting failure())
  */
 record DecodeRun(Pcm pcm, String openError, String failure, boolean hung, long firstByteMs, long totalMs) {
+
+    /**
+     * What every candidate decodes to. It lives here, not in {@link Candidate}, so that the native
+     * tool for one candidate does not make the other two reachable.
+     */
+    static final PcmFormat FORMAT = PcmFormat.of(44_100);
 
     private static final ExecutorService READERS = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -42,7 +49,7 @@ record DecodeRun(Pcm pcm, String openError, String failure, boolean hung, long f
             return run.get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             run.cancel(true);
-            return new DecodeRun(Pcm.fromS16le(new byte[0], Candidate.FORMAT.sampleRate()), null, null, true, -1,
+            return new DecodeRun(Pcm.fromS16le(new byte[0], FORMAT.sampleRate()), null, null, true, -1,
                     elapsedMs(start));
         } catch (ExecutionException e) {
             throw new IllegalStateException(e.getCause());
@@ -54,7 +61,7 @@ record DecodeRun(Pcm pcm, String openError, String failure, boolean hung, long f
         try {
             decoder = factory.open(url);
         } catch (IOException | RuntimeException e) {
-            return new DecodeRun(Pcm.fromS16le(new byte[0], Candidate.FORMAT.sampleRate()), String.valueOf(e), null,
+            return new DecodeRun(Pcm.fromS16le(new byte[0], FORMAT.sampleRate()), String.valueOf(e), null,
                     false, -1, elapsedMs(start));
         }
         try (decoder) {
@@ -75,7 +82,7 @@ record DecodeRun(Pcm pcm, String openError, String failure, boolean hung, long f
             }
             long total = elapsedMs(start);
             String failure = decoder.failure();
-            return new DecodeRun(Pcm.fromS16le(out.toByteArray(), Candidate.FORMAT.sampleRate()), null,
+            return new DecodeRun(Pcm.fromS16le(out.toByteArray(), FORMAT.sampleRate()), null,
                     failure != null ? failure : readError, false, firstByte, total);
         }
     }

@@ -46,3 +46,22 @@ disappears even in a correct decoder, because the low band holds nothing to rebu
   reports `FINISHED` before the exception that ended the track.
 - The JAAD adapter byte-swaps, because the plugin only writes big-endian PCM. It also makes network
   reads wait for 32 KiB, because the plugin detects the format from `in.available()` bytes only.
+
+## Native image (D1/D2)
+
+```bash
+scripts/decoder-eval-native.sh [ffmpeg|lavaplayer|jaad ...]
+```
+
+Each candidate has its own entry point (`FfmpegDecodeTool`, `LavaplayerDecodeTool`,
+`JaadDecodeTool`), and each of those can reach only its own decoder. The size difference between
+the binaries is therefore each decoder's cost; the ffmpeg tool is the baseline.
+
+For each candidate, the script:
+1. Runs the tool on the JVM under GraalVM's tracing agent, which writes the metadata the candidate
+   needs.
+2. Builds a native binary with `-Os`, as jazzclub does.
+3. Decodes the same fixtures with the binary. The measurements must match the JVM's exactly.
+
+The results are in `target/decoder-eval/native/report.md`. The script only runs on macOS for now,
+because it reads memory use from `/usr/bin/time -l`.
