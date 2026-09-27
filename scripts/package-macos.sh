@@ -39,10 +39,10 @@ root="$(mktemp -d)"
 trap 'rm -rf "$root"' EXIT
 
 bundle="$root/jazzclub-${version}-macos-${arch}"
-install -d "$bundle/bin" "$bundle/libexec" "$bundle/share/doc/jazzclub" "$bundle/share/licenses/jazzclub" \
-  "$bundle/share/bash-completion/completions"
+install -d "$bundle/bin" "$bundle/libexec/jazzclub" "$bundle/share/doc/jazzclub" \
+  "$bundle/share/licenses/jazzclub" "$bundle/share/bash-completion/completions"
 install -m 0755 "$binary" "$bundle/bin/jazzclub"
-install -m 0644 "$library" "$bundle/libexec/libconnector.dylib"
+install -m 0644 "$library" "$bundle/libexec/jazzclub/libconnector.dylib"
 install -m 0644 README.md "$bundle/share/doc/jazzclub/README.md"
 install -m 0644 LICENSE "$bundle/share/licenses/jazzclub/LICENSE"
 install -m 0644 NOTICE "$bundle/share/licenses/jazzclub/NOTICE"
@@ -57,19 +57,19 @@ Install ffmpeg first:
 brew install ffmpeg
 \`\`\`
 
-Then copy the binary somewhere on your PATH, and its decoder library into the matching
-\`libexec\` directory beside that \`bin\` (jazzclub looks for it there):
+Then copy the binary somewhere on your PATH, and its decoder library into
+\`libexec/jazzclub\` beside that \`bin\` (jazzclub looks for it there):
 
 \`\`\`sh
 install -m 755 bin/jazzclub /usr/local/bin/jazzclub
-install -d /usr/local/libexec
-install -m 644 libexec/libconnector.dylib /usr/local/libexec/libconnector.dylib
+install -d /usr/local/libexec/jazzclub
+install -m 644 libexec/jazzclub/libconnector.dylib /usr/local/libexec/jazzclub/
 \`\`\`
 
 Downloaded files are quarantined by macOS. Clear that once:
 
 \`\`\`sh
-xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/libconnector.dylib
+xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclub/libconnector.dylib
 \`\`\`
 
 For tab completion in bash or zsh, add this to your shell profile:

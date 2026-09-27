@@ -63,14 +63,14 @@ sudo pacman -U jazzclub-0.1.0-1-x86_64.pkg.tar.zst
 brew install ffmpeg
 tar -xzf jazzclub-0.1.0-macos-arm64.tar.gz
 sudo install -m 755 jazzclub-0.1.0-macos-arm64/bin/jazzclub /usr/local/bin/
-sudo install -d /usr/local/libexec
-sudo install -m 644 jazzclub-0.1.0-macos-arm64/libexec/libconnector.dylib /usr/local/libexec/
+sudo install -d /usr/local/libexec/jazzclub
+sudo install -m 644 jazzclub-0.1.0-macos-arm64/libexec/jazzclub/libconnector.dylib /usr/local/libexec/jazzclub/
 # macOS quarantines downloaded files
-xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/libconnector.dylib
+xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclub/libconnector.dylib
 ```
 
-The decoder library goes in the `libexec` directory beside the `bin` you install into; jazzclub
-also finds it in the binary's own directory.
+The decoder library goes in `libexec/jazzclub` beside the `bin` you install into; jazzclub also
+finds it in the binary's own directory.
 
 Every release comes with `SHA256SUMS-*` files; check your download with `sha256sum -c` (on macOS
 `shasum -a 256 -c`). The Linux packages install tab completion for bash; the macOS archive has it
@@ -252,7 +252,7 @@ act_songban = disabled
 | `buffer_seconds` | `5` | How much audio to keep decoded ahead of what you hear, to bridge network hiccups. |
 | `sample_rate` | `0` | Output sample rate in Hz. `0` keeps Pandora's 44100. Any other rate is resampled by ffmpeg. |
 | `audio_pipe` | | Write raw audio to this named pipe instead of playing it, see [Multi-room audio](#multi-room-audio). |
-| `decoder` | `lavaplayer` | `lavaplayer`: the built-in decoder, nothing to install. `ffmpeg`: an `ffmpeg` process; needs ffmpeg on your `PATH`. jazzclub also falls back to ffmpeg when the built-in decoder cannot load. |
+| `decoder` | `lavaplayer` | `lavaplayer`: the built-in decoder, nothing to install. `ffmpeg`: an `ffmpeg` process; needs ffmpeg on your `PATH`. jazzclub also falls back to ffmpeg when the built-in decoder cannot load, and says so when the first song starts. |
 | `gain_mul` | `1.0` | How much of Pandora's per-track loudness correction to apply; `0.0` turns it off. |
 | `autostart_station` | the last one played | Station id to play right away. Press `i` to see the id of the current station. |
 | `sort` | `name_az` | Order of the station list: `name_az`, `name_za`, or with QuickMix pinned last (`quickmix_01_name_az`, `quickmix_01_name_za`) or first (`quickmix_10_name_az`, `quickmix_10_name_za`). |
@@ -444,7 +444,8 @@ password_command = secret-tool lookup service jazzclub
 
 **`/!\ Could not start 'ffmpeg'`**
 You have `decoder = ffmpeg` or a `sample_rate` other than 44100, or the built-in decoder could not
-load (run with `-v` to see why). Install ffmpeg, see [Requirements](#requirements).
+load (jazzclub says why when the first song starts). Install ffmpeg, see
+[Requirements](#requirements).
 
 **`Error: Wrong email address or password.`**
 Check `user` and `password`. If you use `password_command`, run the command by itself and make sure

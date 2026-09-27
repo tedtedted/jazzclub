@@ -19,8 +19,9 @@ import org.slf4j.LoggerFactory;
  * loaded, in this order:
  * <ol>
  *   <li>installed next to the binary, as the packages do: {@code <bin>/../lib/jazzclub/} (deb,
- *       AUR), {@code <bin>/../libexec/} (macOS bundle, Homebrew) or the binary's own directory. It
- *       is used where it is; nothing is written.</li>
+ *       AUR), {@code <bin>/../libexec/jazzclub/} (macOS bundle), {@code <bin>/../libexec/} (a
+ *       Homebrew keg's private libexec) or the binary's own directory. It is used where it is;
+ *       nothing is written.</li>
  *   <li>otherwise the copy embedded in the build, unpacked into jazzclub's cache directory and
  *       rewritten only if it changed. This keeps {@code java -jar} and a bare downloaded binary
  *       working.</li>
@@ -93,7 +94,8 @@ public final class LavaplayerNatives {
         Path prefix = bin.getParent();
         List<Path> candidates = prefix == null
                 ? List.of(bin)
-                : List.of(prefix.resolve("lib").resolve("jazzclub"), prefix.resolve("libexec"), bin);
+                : List.of(prefix.resolve("lib").resolve("jazzclub"), prefix.resolve("libexec").resolve("jazzclub"),
+                        prefix.resolve("libexec"), bin);
         return candidates.stream().filter(directory -> Files.isRegularFile(directory.resolve(FILE_NAME))).findFirst();
     }
 

@@ -30,12 +30,16 @@ class LavaplayerNativesTest {
     }
 
     @Test
-    void prefersLibJazzclubThenLibexecThenTheBinarysOwnDirectory() throws Exception {
-        Path binary = binaryWithLibraryIn("lib/jazzclub", "libexec", "bin");
+    void prefersLibJazzclubThenLibexecJazzclubThenLibexecThenTheBinarysOwnDirectory() throws Exception {
+        Path binary = binaryWithLibraryIn("lib/jazzclub", "libexec/jazzclub", "libexec", "bin");
         assertThat(LavaplayerNatives.installedDirectory(binary))
                 .contains(install.resolve("lib/jazzclub").toRealPath());
 
         Files.delete(install.resolve("lib/jazzclub").resolve(LIBRARY));
+        assertThat(LavaplayerNatives.installedDirectory(binary))
+                .contains(install.resolve("libexec/jazzclub").toRealPath());
+
+        Files.delete(install.resolve("libexec/jazzclub").resolve(LIBRARY));
         assertThat(LavaplayerNatives.installedDirectory(binary))
                 .contains(install.resolve("libexec").toRealPath());
 

@@ -96,7 +96,8 @@ class AppConfiguration {
     /** Lazy: nothing touches the sound system, or loads a decoder, until the first song. */
     @Bean
     @Lazy
-    AudioPlayer audioPlayer(JazzclubProperties properties, PandoraProperties pandora, EventQueue events) {
+    AudioPlayer audioPlayer(JazzclubProperties properties, PandoraProperties pandora, EventQueue events,
+                            Console console) {
         Path nativeLibraries = XdgDirectories.system().cacheDirectory().resolve("lib");
         JavaSoundNativeSupport.prepare(nativeLibraries);
         ProxySettings streamProxy = pandora.streamProxy(System.getenv("http_proxy"));
@@ -113,7 +114,8 @@ class AppConfiguration {
                             HttpClientFactory.create(pandora.timeout(), streamProxy, null, null), format);
                 },
                 () -> FfmpegDecoder.factory(properties.ffmpeg(),
-                        streamProxy == null ? null : streamProxy.toEnvironmentValue(), format));
+                        streamProxy == null ? null : streamProxy.toEnvironmentValue(), format),
+                message -> console.info(message + "\n"));
         return new StreamingAudioPlayer(
                 decoders.prefetching(properties.bufferSeconds() * format.bytesPerSecond()),
                 sinks,
