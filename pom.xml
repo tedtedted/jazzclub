@@ -258,5 +258,75 @@
                 </plugins>
             </build>
         </profile>
+        <!--
+          Decoder evaluation spike (issue #9): ./mvnw -Pdecoder-eval test
+          Compares ffmpeg, LavaPlayer and JAAD on the fixtures in src/decoder-eval and writes
+          target/decoder-eval/report.md. Its code, candidates and dependencies exist only in this
+          profile, so the normal build and CI never see them.
+        -->
+        <profile>
+            <id>decoder-eval</id>
+            <properties>
+                <jacoco.skip>true</jacoco.skip>
+            </properties>
+            <repositories>
+                <!-- vavi-sound-aac and its vavi-* dependencies are published on JitPack only -->
+                <repository>
+                    <id>jitpack.io</id>
+                    <url>https://jitpack.io</url>
+                </repository>
+            </repositories>
+            <dependencies>
+                <dependency>
+                    <groupId>dev.arbjerg</groupId>
+                    <artifactId>lavaplayer</artifactId>
+                    <version>2.2.7</version>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.github.umjammer</groupId>
+                    <artifactId>vavi-sound-aac</artifactId>
+                    <version>0.8.13</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>add-decoder-eval-sources</id>
+                                <phase>generate-test-sources</phase>
+                                <goals><goal>add-test-source</goal></goals>
+                                <configuration>
+                                    <sources><source>src/decoder-eval/java</source></sources>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>add-decoder-eval-resources</id>
+                                <phase>generate-test-resources</phase>
+                                <goals><goal>add-test-resource</goal></goals>
+                                <configuration>
+                                    <resources>
+                                        <resource><directory>src/decoder-eval/resources</directory></resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes><include>**/eval/*Test.java</include></includes>
+                            <!-- a failed check is a result for the report, not a broken build -->
+                            <testFailureIgnore>true</testFailureIgnore>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
