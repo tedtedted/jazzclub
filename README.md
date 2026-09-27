@@ -24,7 +24,9 @@ Welcome to jazzclub (0.1.0)! Press ? for a list of commands.
 
 ## Requirements
 
-- **ffmpeg** on your `PATH`. jazzclub uses it to decode the audio stream.
+- Optionally **ffmpeg** on your `PATH`. jazzclub decodes Pandora's audio itself; ffmpeg is only
+  needed for `decoder = ffmpeg`, for a `sample_rate` other than 44100, or as a fallback on a system
+  where the built-in decoder does not load (see [`decoder`](#settings)).
 
   | System | Install |
   |---|---|
@@ -242,8 +244,9 @@ act_songban = disabled
 | `audio_quality` | `high` | `low`, `medium` or `high`. Free accounts get AAC at every level. |
 | `volume` | what you left it at | Initial volume correction in dB. Usually between -30 and +5. |
 | `buffer_seconds` | `5` | How much audio to keep decoded ahead of what you hear, to bridge network hiccups. |
-| `sample_rate` | `0` | Output sample rate in Hz. `0` keeps Pandora's 44100. |
+| `sample_rate` | `0` | Output sample rate in Hz. `0` keeps Pandora's 44100. Any other rate is resampled by ffmpeg. |
 | `audio_pipe` | | Write raw audio to this named pipe instead of playing it, see [Multi-room audio](#multi-room-audio). |
+| `decoder` | `lavaplayer` | `lavaplayer`: the built-in decoder, nothing to install. `ffmpeg`: an `ffmpeg` process; needs ffmpeg on your `PATH`. jazzclub also falls back to ffmpeg when the built-in decoder cannot load. |
 | `gain_mul` | `1.0` | How much of Pandora's per-track loudness correction to apply; `0.0` turns it off. |
 | `autostart_station` | the last one played | Station id to play right away. Press `i` to see the id of the current station. |
 | `sort` | `name_az` | Order of the station list: `name_az`, `name_za`, or with QuickMix pinned last (`quickmix_01_name_az`, `quickmix_01_name_za`) or first (`quickmix_10_name_az`, `quickmix_10_name_za`). |
@@ -368,7 +371,8 @@ sample_rate = 48000
 ```
 
 The format is signed 16 bit little-endian stereo at `sample_rate` (44100 if not set), which in
-Snapcast's terms is `sampleformat=48000:16:2`. Volume keys and Pandora's loudness correction still
+Snapcast's terms is `sampleformat=48000:16:2`. A rate other than 44100 is resampled by ffmpeg, so it
+needs ffmpeg installed. Volume keys and Pandora's loudness correction still
 work; they are applied to the samples. If nothing reads the pipe, the song waits; you can still
 skip or quit.
 
@@ -433,7 +437,8 @@ password_command = secret-tool lookup service jazzclub
 ## Troubleshooting
 
 **`/!\ Could not start 'ffmpeg'`**
-Install ffmpeg, see [Requirements](#requirements).
+You have `decoder = ffmpeg` or a `sample_rate` other than 44100, or the built-in decoder could not
+load (run with `-v` to see why). Install ffmpeg, see [Requirements](#requirements).
 
 **`Error: Wrong email address or password.`**
 Check `user` and `password`. If you use `password_command`, run the command by itself and make sure
@@ -458,9 +463,11 @@ Deliberately different:
 
 - Every request to Pandora uses HTTPS. pianobar still sends some over plain HTTP.
 - jazzclub takes command line options; pianobar has none.
-- Audio is decoded by the `ffmpeg` *program* rather than its libraries. While a song plays, its
-  stream URL is therefore visible in the process list to other users of the machine. The URL is
-  short-lived and only good for that one song.
+- Audio is decoded in-process by [LavaPlayer](https://github.com/lavalink-devs/lavaplayer)'s MP4
+  parser and the Fraunhofer FDK AAC decoder, so ffmpeg is optional. With `decoder = ffmpeg` it is
+  decoded by the `ffmpeg` *program* rather than its libraries; while a song plays, its stream URL
+  is then visible in the process list to other users of the machine. The URL is short-lived and
+  only good for that one song.
 
 ## Building
 

@@ -14,10 +14,10 @@ import com.sedmelluq.discord.lavaplayer.tools.io.SeekableInputStream;
 import com.sedmelluq.discord.lavaplayer.track.info.AudioTrackInfoProvider;
 
 /**
- * An audio file over HTTP, read through jazzclub's own {@link HttpClient} (so proxy, {@code bind_to}
- * and {@code ca_bundle} apply) for LavaPlayer's MP4 parser. Reading is sequential; seeking backwards
- * or far ahead costs a {@code Range} request. Pandora's files keep their index before the audio, so
- * a song is normally one request.
+ * An audio file over HTTP for LavaPlayer's MP4 parser, read through jazzclub's own
+ * {@link HttpClient} rather than LavaPlayer's, so jazzclub's proxy settings apply. Reading is
+ * sequential; seeking backwards or far ahead costs a {@code Range} request. Pandora's files keep
+ * their index before the audio, so a song is normally one request.
  *
  * <p>A connection that drops mid-file is resumed where it stopped, a few times; a file that ends
  * before its {@code Content-Length} is an error, not a short song.
@@ -30,7 +30,10 @@ final class HttpSeekableStream extends SeekableInputStream {
     /** No Content-Length: the parser then reads to the end, and a drop cannot be told from the end. */
     private static final long UNKNOWN_LENGTH = Long.MAX_VALUE;
 
+    private static final int MAX_REDIRECTS = 5;
+
     private final HttpClient http;
+    /** Where the file really is, after redirects, so that resuming skips them. */
     private final URI uri;
     private InputStream body;
     private long position;
@@ -52,7 +55,7 @@ final class HttpSeekableStream extends SeekableInputStream {
             throw new IOException("HTTP " + response.statusCode());
         }
         long length = response.headers().firstValueAsLong("Content-Length").orElse(UNKNOWN_LENGTH);
-        return new HttpSeekableStream(http, uri, response.body(), length);
+        return new HttpSeekableStream(http, response.uri(), response.body(), length);
     }
 
     @Override
@@ -165,16 +168,40 @@ final class HttpSeekableStream extends SeekableInputStream {
         }
     }
 
+    /**
+     * Follows redirects itself: jazzclub's clients don't (the Pandora API must not be redirected),
+     * but a CDN may, and ffmpeg always did.
+     */
     private static HttpResponse<InputStream> send(HttpClient http, URI uri, long from) throws IOException {
-        HttpRequest.Builder request = HttpRequest.newBuilder(uri).GET();
-        if (from > 0) {
-            request.header("Range", "bytes=" + from + "-");
-        }
-        try {
-            return http.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new InterruptedIOException("Interrupted while connecting");
+        URI target = uri;
+        for (int redirects = 0; ; redirects++) {
+            HttpRequest.Builder request = HttpRequest.newBuilder(target).GET();
+            if (from > 0) {
+                request.header("Range", "bytes=" + from + "-");
+            }
+            HttpResponse<InputStream> response;
+            try {
+                response = http.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new InterruptedIOException("Interrupted while connecting");
+            }
+            int status = response.statusCode();
+            boolean redirect = status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
+            if (!redirect) {
+                return response;
+            }
+            response.body().close();
+            String location = response.headers().firstValue("Location").orElse(null);
+            if (location == null || redirects >= MAX_REDIRECTS) {
+                throw new IOException("HTTP " + status
+                        + (location == null ? " without a Location" : ", too many redirects"));
+            }
+            target = target.resolve(location);
+            String scheme = target.getScheme();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                throw new IOException("Redirected to an unsupported URL scheme: " + scheme);
+            }
         }
     }
 }

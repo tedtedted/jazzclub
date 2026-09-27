@@ -29,6 +29,7 @@ public enum ConfigKey {
     BUFFER_SECONDS("buffer_seconds", "jazzclub.buffer-seconds"),
     SAMPLE_RATE("sample_rate", "jazzclub.sample-rate"),
     AUDIO_PIPE("audio_pipe", "jazzclub.audio-pipe", true),
+    DECODER("decoder", "jazzclub.decoder"),
     EVENT_COMMAND("event_command", "jazzclub.event-command", true),
     FIFO("fifo", "jazzclub.fifo", true),
 

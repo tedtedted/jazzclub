@@ -111,6 +111,30 @@ class HttpSeekableStreamTest {
     }
 
     @Test
+    void followsARedirectAndResumesAtTheNewLocation() throws Exception {
+        URI real = server.mount(FIXTURE, Behaviour.NORMAL.droppingOnceAfter(10_000));
+        URI redirect = server.redirectTo(real);
+
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, redirect)) {
+            assertThat(stream.readAllBytes()).isEqualTo(file);
+        }
+        assertThat(server.requestsFor(redirect)).hasSize(1);
+        assertThat(server.requestsFor(real)).extracting(AudioFixtureServer.Request::range)
+                .containsExactly(null, "bytes=10000-");
+    }
+
+    @Test
+    void givesUpAfterTooManyRedirects() {
+        URI url = server.mount(FIXTURE);
+        for (int i = 0; i < 7; i++) {
+            url = server.redirectTo(url);
+        }
+        URI start = url;
+
+        assertThatThrownBy(() -> HttpSeekableStream.open(http, start)).hasMessageContaining("too many redirects");
+    }
+
+    @Test
     void failsOnAnHttpError() {
         URI missing = server.mount(FIXTURE).resolve("/nothing-here.m4a");
 

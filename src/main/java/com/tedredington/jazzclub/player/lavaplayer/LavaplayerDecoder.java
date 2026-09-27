@@ -36,7 +36,7 @@ public final class LavaplayerDecoder implements Decoder {
         worker = Thread.ofPlatform().daemon().name("decoder").unstarted(() -> decode(http, audioUrl, format, out));
     }
 
-    /** @param http jazzclub's client for audio, carrying its proxy, bind and CA settings */
+    /** @param http jazzclub's client for audio, carrying the stream proxy */
     public static Decoder.Factory factory(HttpClient http, PcmFormat format) {
         return audioUrl -> {
             String scheme = audioUrl.getScheme();

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.tedredington.jazzclub.app.StationSort;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
+import com.tedredington.jazzclub.player.DecoderType;
 import com.tedredington.jazzclub.player.PcmFormat;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -26,6 +27,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param bufferSeconds    {@code buffer_seconds}: how much decoded audio to keep ahead of playback
  * @param sampleRate       {@code sample_rate}: output rate in Hz; 0 for the stream's own, 44100
  * @param audioPipe        {@code audio_pipe}: named pipe to write raw audio to instead of the sound card
+ * @param decoder          {@code decoder}: lavaplayer (built in) or ffmpeg (external, needs ffmpeg installed)
  * @param eventCommand     {@code event_command}: executable run for every player event
  * @param fifo             {@code fifo}: named pipe for remote control; default {@code ctl} next to the config
  * @param ffmpeg           name or path of the ffmpeg executable
@@ -47,6 +49,7 @@ public record JazzclubProperties(
         @DefaultValue("5") int bufferSeconds,
         @DefaultValue("0") int sampleRate,
         Path audioPipe,
+        @DefaultValue("lavaplayer") DecoderType decoder,
         String eventCommand,
         Path fifo,
         @DefaultValue("ffmpeg") String ffmpeg,

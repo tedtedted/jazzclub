@@ -56,6 +56,7 @@ public final class AudioFixtureServer implements AutoCloseable {
     private final HttpServer server;
     private final Map<String, Mount> mounts = new ConcurrentHashMap<>();
     private final List<Request> requests = new CopyOnWriteArrayList<>();
+    private final Map<String, URI> redirects = new ConcurrentHashMap<>();
 
     private static final class Mount {
         final byte[] body;
@@ -95,6 +96,14 @@ public final class AudioFixtureServer implements AutoCloseable {
         return mount(fixture, Behaviour.NORMAL);
     }
 
+    /** A URL that answers 302 with {@code target} as its Location, e.g. another mount or itself. */
+    public URI redirectTo(URI target) {
+        String path = "/" + mounts.size() + "/redirect";
+        redirects.put(path, target);
+        mounts.put(path, new Mount(new byte[0], Behaviour.NORMAL));
+        return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + path);
+    }
+
     public List<Request> requestsFor(URI uri) {
         return requests.stream().filter(r -> r.path().equals(uri.getPath())).toList();
     }
@@ -106,6 +115,12 @@ public final class AudioFixtureServer implements AutoCloseable {
             Mount mount = mounts.get(path);
             if (mount == null) {
                 respond(exchange, path, rangeHeader, 404);
+                return;
+            }
+            URI redirect = redirects.get(path);
+            if (redirect != null) {
+                exchange.getResponseHeaders().set("Location", redirect.toString());
+                respond(exchange, path, rangeHeader, 302);
                 return;
             }
             Behaviour behaviour = mount.behaviour;

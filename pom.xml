@@ -23,6 +23,8 @@
         <jline.version>4.4.5</jline.version>
         <picocli.version>4.7.7</picocli.version>
         <lavaplayer.version>2.2.7</lavaplayer.version>
+        <!-- LavaPlayer's name for this build machine's platform; set by the natives-* profiles below -->
+        <lavaplayer.natives>none</lavaplayer.natives>
         <jacoco.version>0.8.15</jacoco.version>
         <!-- minimum line coverage enforced by `mvn verify` -->
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
@@ -265,8 +267,55 @@
                             </execution>
                         </executions>
                     </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <!--
+                              The built-in decoder's native library (fdk-aac and friends), for this
+                              platform only: the lavaplayer-natives jar carries all of them (26 MB).
+                              LavaplayerNatives unpacks and loads it at runtime. Fraunhofer FDK AAC
+                              licence, see NOTICE.
+                            -->
+                            <execution>
+                                <id>embed-libconnector</id>
+                                <phase>process-resources</phase>
+                                <goals><goal>unpack</goal></goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>dev.arbjerg</groupId>
+                                            <artifactId>lavaplayer-natives</artifactId>
+                                            <version>${lavaplayer.version}</version>
+                                            <includes>natives/${lavaplayer.natives}/libconnector.*</includes>
+                                            <outputDirectory>${project.build.outputDirectory}/native-libs</outputDirectory>
+                                            <fileMappers>
+                                                <org.codehaus.plexus.components.io.filemappers.FlattenFileMapper/>
+                                            </fileMappers>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
+        </profile>
+        <!-- LavaPlayer's platform names for the machines jazzclub is released from -->
+        <profile>
+            <id>natives-darwin</id>
+            <activation><os><family>mac</family></os></activation>
+            <properties><lavaplayer.natives>darwin</lavaplayer.natives></properties>
+        </profile>
+        <profile>
+            <id>natives-linux-x86-64</id>
+            <activation><os><name>Linux</name><arch>amd64</arch></os></activation>
+            <properties><lavaplayer.natives>linux-x86-64</lavaplayer.natives></properties>
+        </profile>
+        <profile>
+            <id>natives-linux-aarch64</id>
+            <activation><os><name>Linux</name><arch>aarch64</arch></os></activation>
+            <properties><lavaplayer.natives>linux-aarch64</lavaplayer.natives></properties>
         </profile>
     </profiles>
 </project>
