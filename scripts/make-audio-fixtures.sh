@@ -23,7 +23,7 @@ signal() { # name, lavfi filter graph producing 44.1 kHz stereo
 signal tone-1k "aevalsrc=0.25*sin(2*PI*1000*t)|0.25*sin(2*PI*1000*t):s=44100:d=3"
 # 3 kHz only on the left, 5 kHz only on the right: parametric stereo must keep them apart.
 signal panned  "aevalsrc=0.25*sin(2*PI*3000*t)|0.25*sin(2*PI*5000*t):s=44100:d=3"
-# White noise, independent per channel, 8 s. SBR rebuilds the high band from the low band's
+# White noise, 8 s (both channels come out identical: ffmpeg seeds random(0) and random(1) the same). SBR rebuilds the high band from the low band's
 # content, so broadband noise is the signal that shows whether a decoder applies SBR: without it,
 # nothing is left above ~11 kHz (HE-AAC at 44.1 kHz codes its core at 22.05 kHz). A lone tone up
 # there would not work, because SBR has no low-band content to rebuild it from.

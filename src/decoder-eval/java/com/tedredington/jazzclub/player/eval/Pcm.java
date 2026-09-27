@@ -70,6 +70,60 @@ record Pcm(double[] left, double[] right, int sampleRate) {
         return count == 0 ? Double.NEGATIVE_INFINITY : 10 * Math.log10(Math.max(sum / count, 1e-30));
     }
 
+    /** Correlation of left and right over the whole track: 1 is mono, near 0 is wide stereo. */
+    double stereoCorrelation() {
+        double lr = 0;
+        double ll = 0;
+        double rr = 0;
+        for (int i = 0; i < frames(); i++) {
+            lr += left[i] * right[i];
+            ll += left[i] * left[i];
+            rr += right[i] * right[i];
+        }
+        return ll == 0 || rr == 0 ? 0 : lr / Math.sqrt(ll * rr);
+    }
+
+    /** Third-octave band centres from 125 Hz to 16 kHz. */
+    static final double[] THIRD_OCTAVES = java.util.stream.IntStream.rangeClosed(0, 21)
+            .mapToDouble(i -> 125 * Math.pow(2, i / 3.0)).toArray();
+
+    /**
+     * Largest difference between this decode's third-octave spectrum and a reference decode's, left
+     * channel, as {@code {band centre, difference in dB}}, over bands within 60 dB of the loudest. Used instead of a sample-by-sample null
+     * test: fdk-aac and FFmpeg synthesise HE-AAC's SBR band differently (different delay and phase),
+     * so their samples don't line up even when both decode correctly, but their spectra do.
+     */
+    double[] worstBandDifference(Pcm reference) {
+        double[] levels = new double[THIRD_OCTAVES.length];
+        double loudest = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < levels.length; i++) {
+            levels[i] = reference.bandDb(0, lowEdge(THIRD_OCTAVES[i]), highEdge(THIRD_OCTAVES[i]));
+            loudest = Math.max(loudest, levels[i]);
+        }
+        double worst = 0;
+        double at = 0;
+        for (int i = 0; i < levels.length; i++) {
+            // near-silent bands give large dB differences that nobody could hear
+            if (levels[i] < loudest - 60) {
+                continue;
+            }
+            double difference = bandDb(0, lowEdge(THIRD_OCTAVES[i]), highEdge(THIRD_OCTAVES[i])) - levels[i];
+            if (Math.abs(difference) > Math.abs(worst)) {
+                worst = difference;
+                at = THIRD_OCTAVES[i];
+            }
+        }
+        return new double[] {at, worst};
+    }
+
+    private static double lowEdge(double centre) {
+        return centre / Math.pow(2, 1 / 6.0);
+    }
+
+    private static double highEdge(double centre) {
+        return centre * Math.pow(2, 1 / 6.0);
+    }
+
     /** In-place radix-2 FFT; the length must be a power of two. */
     private static void fft(double[] re, double[] im) {
         int n = re.length;

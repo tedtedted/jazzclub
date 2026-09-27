@@ -116,6 +116,7 @@ public final class Radio {
         Station realStation = playing.quickMix() ? state.findStation(song.stationId()).orElse(null) : null;
         console.print(MessageType.PLAYING, renderer.nowPlayingSong(song, realStation) + "\n");
         playbackId = player.play(song.audioUrl(), song.gainDb());
+        SpikeUrlLog.FROM_ENVIRONMENT.record(song); // TEMPORARY, decoder spike (#9)
         events.emit(EventType.SONG_START, state.selection(), EventResult.OK);
     }
 
