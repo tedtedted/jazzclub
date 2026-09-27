@@ -63,8 +63,14 @@ sudo pacman -U jazzclub-0.1.0-1-x86_64.pkg.tar.zst
 brew install ffmpeg
 tar -xzf jazzclub-0.1.0-macos-arm64.tar.gz
 sudo install -m 755 jazzclub-0.1.0-macos-arm64/bin/jazzclub /usr/local/bin/
-xattr -d com.apple.quarantine /usr/local/bin/jazzclub    # macOS quarantines downloaded binaries
+sudo install -d /usr/local/libexec
+sudo install -m 644 jazzclub-0.1.0-macos-arm64/libexec/libconnector.dylib /usr/local/libexec/
+# macOS quarantines downloaded files
+xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/libconnector.dylib
 ```
+
+The decoder library goes in the `libexec` directory beside the `bin` you install into; jazzclub
+also finds it in the binary's own directory.
 
 Every release comes with `SHA256SUMS-*` files; check your download with `sha256sum -c` (on macOS
 `shasum -a 256 -c`). The Linux packages install tab completion for bash; the macOS archive has it

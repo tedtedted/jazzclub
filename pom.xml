@@ -274,14 +274,41 @@
                             <!--
                               The built-in decoder's native library (fdk-aac and friends), for this
                               platform only: the lavaplayer-natives jar carries all of them (26 MB).
-                              LavaplayerNatives unpacks and loads it at runtime. Fraunhofer FDK AAC
-                              licence, see NOTICE.
+                              Fraunhofer FDK AAC licence, see NOTICE.
+
+                              Packages install it next to the binary (see scripts/package-*.sh and
+                              LavaplayerNatives), so it is staged in target/ beside target/jazzclub.
+                              A copy is also embedded, for a bare binary with nothing installed: it
+                              is then unpacked into the cache directory at runtime.
                             -->
+                            <execution>
+                                <id>stage-libconnector</id>
+                                <phase>process-resources</phase>
+                                <goals><goal>unpack</goal></goals>
+                                <configuration>
+                                    <!-- per execution: the plugin skips an artifact it has unpacked before -->
+                                    <markersDirectory>${project.build.directory}/markers/stage-libconnector</markersDirectory>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>dev.arbjerg</groupId>
+                                            <artifactId>lavaplayer-natives</artifactId>
+                                            <version>${lavaplayer.version}</version>
+                                            <includes>natives/${lavaplayer.natives}/libconnector.*</includes>
+                                            <outputDirectory>${project.build.directory}</outputDirectory>
+                                            <fileMappers>
+                                                <org.codehaus.plexus.components.io.filemappers.FlattenFileMapper/>
+                                            </fileMappers>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
                             <execution>
                                 <id>embed-libconnector</id>
                                 <phase>process-resources</phase>
                                 <goals><goal>unpack</goal></goals>
                                 <configuration>
+                                    <!-- per execution: the plugin skips an artifact it has unpacked before -->
+                                    <markersDirectory>${project.build.directory}/markers/embed-libconnector</markersDirectory>
                                     <artifactItems>
                                         <artifactItem>
                                             <groupId>dev.arbjerg</groupId>
