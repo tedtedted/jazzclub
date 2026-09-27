@@ -22,6 +22,7 @@
         <revision>0.1.0-SNAPSHOT</revision>
         <jline.version>4.4.5</jline.version>
         <picocli.version>4.7.7</picocli.version>
+        <lavaplayer.version>2.2.7</lavaplayer.version>
         <jacoco.version>0.8.15</jacoco.version>
         <!-- minimum line coverage enforced by `mvn verify` -->
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
@@ -54,6 +55,15 @@
             <groupId>org.jline</groupId>
             <artifactId>jline-terminal-jni</artifactId>
             <version>${jline.version}</version>
+        </dependency>
+        <!--
+          The default decoder: only its MP4 parser and fdk-aac (JNI) are used, fed by our own HTTP
+          stream, so its player, HTTP client and source managers stay unreachable. See issue #9.
+        -->
+        <dependency>
+            <groupId>dev.arbjerg</groupId>
+            <artifactId>lavaplayer</artifactId>
+            <version>${lavaplayer.version}</version>
         </dependency>
 
         <dependency>
