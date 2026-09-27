@@ -175,9 +175,8 @@
                 <version>${jacoco.version}</version>
                 <configuration>
                     <excludes>
-                        <!-- thin adapters over hardware and OS: a real sound card, a real tty, a real ffmpeg -->
+                        <!-- thin adapters over hardware and OS: a real sound card, a real tty -->
                         <exclude>com/tedredington/jazzclub/player/javasound/**</exclude>
-                        <exclude>com/tedredington/jazzclub/player/ffmpeg/FfmpegDecoder*</exclude>
                         <exclude>com/tedredington/jazzclub/terminal/**</exclude>
                     </excludes>
                 </configuration>
