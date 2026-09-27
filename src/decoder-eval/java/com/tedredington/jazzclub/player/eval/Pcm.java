@@ -1,5 +1,9 @@
 package com.tedredington.jazzclub.player.eval;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
+
 import com.tedredington.jazzclub.player.PcmFormat;
 
 /** Decoded stereo s16le audio, with the few measurements the evaluation needs. */
@@ -40,34 +44,88 @@ record Pcm(double[] left, double[] right, int sampleRate) {
         return goertzelDb(samples, from, to, frequency);
     }
 
+    private double goertzelDb(double[] samples, int from, int to, double frequency) {
+        int n = to - from;
+        if (n <= 0) {
+            return Double.NEGATIVE_INFINITY;
+        }
+        double coefficient = 2 * Math.cos(2 * Math.PI * frequency / sampleRate);
+        double s1 = 0;
+        double s2 = 0;
+        for (int i = from; i < to; i++) {
+            // Hann window, so a strong neighbouring tone doesn't leak into this one
+            double window = 0.5 - 0.5 * Math.cos(2 * Math.PI * (i - from) / (n - 1));
+            double s0 = samples[i] * window + coefficient * s1 - s2;
+            s2 = s1;
+            s1 = s0;
+        }
+        double power = s1 * s1 + s2 * s2 - coefficient * s1 * s2;
+        // the Hann window halves a sine's amplitude
+        double amplitude = 2 * Math.sqrt(Math.max(power, 0)) / (n * 0.5);
+        return 20 * Math.log10(Math.max(amplitude, 1e-12));
+    }
+
+    private static final int FFT_SIZE = 2048;
+    private static final int MAX_WINDOWS = Integer.getInteger("eval.maxWindows", 400);
+    private static final double[] HANN = new double[FFT_SIZE];
+    private static final double[] COS = new double[FFT_SIZE / 2];
+    private static final double[] SIN = new double[FFT_SIZE / 2];
+    // weak, so a finished track's samples can be collected (arrays hash by identity)
+    private static final Map<double[], double[]> SPECTRA = Collections.synchronizedMap(new WeakHashMap<>());
+
+    static {
+        for (int i = 0; i < FFT_SIZE; i++) {
+            HANN[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FFT_SIZE - 1));
+        }
+        for (int i = 0; i < FFT_SIZE / 2; i++) {
+            COS[i] = Math.cos(-2 * Math.PI * i / FFT_SIZE);
+            SIN[i] = Math.sin(-2 * Math.PI * i / FFT_SIZE);
+        }
+    }
+
     /**
-     * Mean power density between two frequencies, in dB, over the middle of the audio (Welch's
-     * method: Hann-windowed 2048-point FFTs, half overlapping). Only differences between bands mean
-     * anything; for white noise every band should come out the same.
+     * Mean power density between two frequencies, in dB, over the middle three quarters of the
+     * audio (Welch's method with Hann-windowed 2048-point FFTs; at most 400 windows, spread evenly,
+     * so a whole song stays quick). Only differences between bands mean anything; for white noise
+     * every band should come out the same.
      */
     double bandDb(int channel, double lowHz, double highHz) {
-        int size = 2048;
-        double[] samples = channel(channel);
-        int from = frames() / 8;
-        int to = frames() - frames() / 8;
-        int lowBin = (int) Math.ceil(lowHz * size / sampleRate);
-        int highBin = (int) Math.floor(highHz * size / sampleRate);
+        double[] spectrum = SPECTRA.computeIfAbsent(channel(channel), this::spectrum);
+        int lowBin = (int) Math.ceil(lowHz * FFT_SIZE / sampleRate);
+        int highBin = Math.min((int) Math.floor(highHz * FFT_SIZE / sampleRate), spectrum.length - 1);
         double sum = 0;
         int count = 0;
-        double[] re = new double[size];
-        double[] im = new double[size];
-        for (int start = from; start + size <= to; start += size / 2) {
-            for (int i = 0; i < size; i++) {
-                re[i] = samples[start + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (size - 1)));
+        for (int bin = lowBin; bin <= highBin; bin++) {
+            sum += spectrum[bin];
+            count++;
+        }
+        return count == 0 ? Double.NEGATIVE_INFINITY : 10 * Math.log10(Math.max(sum / count, 1e-30));
+    }
+
+    /** Average power per FFT bin, the part of {@link #bandDb} worth computing only once. */
+    private double[] spectrum(double[] samples) {
+        double[] power = new double[FFT_SIZE / 2 + 1];
+        int from = samples.length / 8;
+        int to = samples.length - samples.length / 8 - FFT_SIZE;
+        if (to <= from) {
+            return power;
+        }
+        int windows = Math.min(MAX_WINDOWS, (to - from) / (FFT_SIZE / 2) + 1);
+        double step = windows == 1 ? 0 : (double) (to - from) / (windows - 1);
+        double[] re = new double[FFT_SIZE];
+        double[] im = new double[FFT_SIZE];
+        for (int w = 0; w < windows; w++) {
+            int start = from + (int) (w * step);
+            for (int i = 0; i < FFT_SIZE; i++) {
+                re[i] = samples[start + i] * HANN[i];
                 im[i] = 0;
             }
             fft(re, im);
-            for (int bin = lowBin; bin <= highBin; bin++) {
-                sum += re[bin] * re[bin] + im[bin] * im[bin];
-                count++;
+            for (int bin = 0; bin < power.length; bin++) {
+                power[bin] += (re[bin] * re[bin] + im[bin] * im[bin]) / windows;
             }
         }
-        return count == 0 ? Double.NEGATIVE_INFINITY : 10 * Math.log10(Math.max(sum / count, 1e-30));
+        return power;
     }
 
     /** Correlation of left and right over the whole track: 1 is mono, near 0 is wide stereo. */
@@ -124,7 +182,7 @@ record Pcm(double[] left, double[] right, int sampleRate) {
         return centre * Math.pow(2, 1 / 6.0);
     }
 
-    /** In-place radix-2 FFT; the length must be a power of two. */
+    /** In-place radix-2 FFT of {@link #FFT_SIZE} points. */
     private static void fft(double[] re, double[] im) {
         int n = re.length;
         for (int i = 1, j = 0; i < n; i++) {
@@ -143,11 +201,11 @@ record Pcm(double[] left, double[] right, int sampleRate) {
             }
         }
         for (int length = 2; length <= n; length <<= 1) {
-            double angle = -2 * Math.PI / length;
+            int stride = n / length;
             for (int i = 0; i < n; i += length) {
                 for (int k = 0; k < length / 2; k++) {
-                    double wr = Math.cos(angle * k);
-                    double wi = Math.sin(angle * k);
+                    double wr = COS[k * stride];
+                    double wi = SIN[k * stride];
                     int a = i + k;
                     int b = a + length / 2;
                     double xr = re[b] * wr - im[b] * wi;
@@ -159,26 +217,5 @@ record Pcm(double[] left, double[] right, int sampleRate) {
                 }
             }
         }
-    }
-
-    private double goertzelDb(double[] samples, int from, int to, double frequency) {
-        int n = to - from;
-        if (n <= 0) {
-            return Double.NEGATIVE_INFINITY;
-        }
-        double coefficient = 2 * Math.cos(2 * Math.PI * frequency / sampleRate);
-        double s1 = 0;
-        double s2 = 0;
-        for (int i = from; i < to; i++) {
-            // Hann window, so a strong neighbouring tone doesn't leak into this one
-            double window = 0.5 - 0.5 * Math.cos(2 * Math.PI * (i - from) / (n - 1));
-            double s0 = samples[i] * window + coefficient * s1 - s2;
-            s2 = s1;
-            s1 = s0;
-        }
-        double power = s1 * s1 + s2 * s2 - coefficient * s1 * s2;
-        // the Hann window halves a sine's amplitude
-        double amplitude = 2 * Math.sqrt(Math.max(power, 0)) / (n * 0.5);
-        return 20 * Math.log10(Math.max(amplitude, 1e-12));
     }
 }

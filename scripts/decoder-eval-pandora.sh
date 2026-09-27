@@ -18,7 +18,7 @@ mkdir -p "$out"
 
 JAVA_HOME=$graal ./mvnw -B -ntp -q -Pdecoder-eval test-compile
 JAVA_HOME=$graal ./mvnw -B -ntp -q -Pdecoder-eval dependency:build-classpath -Dmdep.outputFile="$out/classpath.txt"
-"$graal/bin/java" --enable-native-access=ALL-UNNAMED \
+"$graal/bin/java" -Xmx4g --enable-native-access=ALL-UNNAMED \
     -cp "target/test-classes:target/classes:$(cat "$out/classpath.txt")" \
     com.tedredington.jazzclub.player.eval.PandoraComparison "$urls" "$out/report.md" 2>"$out/stderr.log" \
-    | grep -v "://"
+    | grep --line-buffered -v "://"
