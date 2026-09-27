@@ -42,8 +42,9 @@ Nothing else. The binary contains everything it needs; no Java installation is r
 
 ## Install
 
-Packages are on the [releases page](https://github.com/tedtedted/jazzclub/releases). Each pulls in
-`ffmpeg`, and on Linux the ALSA library, through your package manager.
+Packages are on the [releases page](https://github.com/tedtedted/jazzclub/releases). On Linux they
+pull in the ALSA library and libstdc++ through your package manager; ffmpeg is suggested (Debian)
+or optional (Arch), since only `decoder = ffmpeg` and resampling need it.
 
 **Debian, Ubuntu** (Debian 12 and Ubuntu 22.04 or newer; `amd64` and `arm64`)
 
@@ -60,7 +61,6 @@ sudo pacman -U jazzclub-0.1.0-1-x86_64.pkg.tar.zst
 **macOS** on Apple Silicon
 
 ```sh
-brew install ffmpeg
 tar -xzf jazzclub-0.1.0-macos-arm64.tar.gz
 sudo install -m 755 jazzclub-0.1.0-macos-arm64/bin/jazzclub /usr/local/bin/
 sudo install -d /usr/local/libexec/jazzclub
@@ -520,5 +520,11 @@ scripts/package-macos.sh 0.0.0-test arm64 target/jazzclub dist
 
 MIT, see [LICENSE](LICENSE). jazzclub is derived from pianobar, © 2008-2014 Lars-Dominik Braun, also
 MIT; see [NOTICE](NOTICE) for the full attribution.
+
+The built-in decoder uses [LavaPlayer](https://github.com/lavalink-devs/lavaplayer) (Apache 2.0).
+Its native library bundles the Fraunhofer FDK AAC codec (FDK licence: redistributable, but not
+free software by Debian's or Fedora's rules), mpg123 (LGPL 2.1), and Opus, Ogg, Vorbis and
+libsamplerate (BSD). [NOTICE](NOTICE) has the details and sources; the licence texts are in
+[licenses/](licenses) and are installed with every package.
 
 jazzclub is not affiliated with or endorsed by Pandora Media, LLC.

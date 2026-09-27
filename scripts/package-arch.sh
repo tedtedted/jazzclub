@@ -46,6 +46,7 @@ install -m 0644 "$library" "$pkg/usr/lib/jazzclub/libconnector.so"
 install -m 0644 README.md "$pkg/usr/share/doc/jazzclub/README.md"
 install -m 0644 LICENSE "$pkg/usr/share/licenses/jazzclub/LICENSE"
 install -m 0644 NOTICE "$pkg/usr/share/licenses/jazzclub/NOTICE"
+install -m 0644 licenses/*.txt "$pkg/usr/share/licenses/jazzclub/"
 install -m 0644 "$completion" "$pkg/usr/share/bash-completion/completions/jazzclub"
 
 size="$(du -sk "$pkg" | awk '{print $1 * 1024}')"
@@ -62,9 +63,14 @@ packager = GitHub Actions
 size = ${size}
 arch = ${arch}
 license = MIT
-depend = ffmpeg
+license = Apache-2.0
+license = LGPL-2.1-only
+license = BSD-3-Clause
+license = BSD-2-Clause
+license = LicenseRef-FDK-AAC
 depend = alsa-lib
 depend = gcc-libs
+optdepend = ffmpeg: decoder = ffmpeg, resampling to another sample_rate, fallback decoder
 PKGINFO
 
 install -d "$out_dir"

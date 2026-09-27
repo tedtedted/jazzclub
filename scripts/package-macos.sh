@@ -46,18 +46,17 @@ install -m 0644 "$library" "$bundle/libexec/jazzclub/libconnector.dylib"
 install -m 0644 README.md "$bundle/share/doc/jazzclub/README.md"
 install -m 0644 LICENSE "$bundle/share/licenses/jazzclub/LICENSE"
 install -m 0644 NOTICE "$bundle/share/licenses/jazzclub/NOTICE"
+install -m 0644 licenses/*.txt "$bundle/share/licenses/jazzclub/"
 install -m 0644 "$completion" "$bundle/share/bash-completion/completions/jazzclub"
 
 cat > "$bundle/INSTALL.md" <<INSTALL
 # jazzclub ${version}
 
-Install ffmpeg first:
+jazzclub decodes Pandora's audio itself. ffmpeg is optional: only \`decoder = ffmpeg\`, a
+\`sample_rate\` other than 44100, or a machine where the built-in decoder cannot load need it
+(\`brew install ffmpeg\`).
 
-\`\`\`sh
-brew install ffmpeg
-\`\`\`
-
-Then copy the binary somewhere on your PATH, and its decoder library into
+Copy the binary somewhere on your PATH, and its decoder library into
 \`libexec/jazzclub\` beside that \`bin\` (jazzclub looks for it there):
 
 \`\`\`sh

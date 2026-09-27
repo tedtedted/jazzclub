@@ -46,10 +46,12 @@ install -m 0644 "$library" "$pkg/usr/lib/jazzclub/libconnector.so"
 install -m 0644 README.md "$pkg/usr/share/doc/jazzclub/README.md"
 install -m 0644 LICENSE "$pkg/usr/share/licenses/jazzclub/LICENSE"
 install -m 0644 NOTICE "$pkg/usr/share/licenses/jazzclub/NOTICE"
+install -m 0644 licenses/*.txt "$pkg/usr/share/licenses/jazzclub/"
 install -m 0644 "$completion" "$pkg/usr/share/bash-completion/completions/jazzclub"
 
 # libasound2: the Java Sound library inside the binary loads ALSA at run time. Debian 13 renamed the
 # package to libasound2t64, which still Provides libasound2. libstdc++6: libconnector needs it.
+# ffmpeg is only needed for decoder = ffmpeg, resampling, or when the built-in decoder cannot load.
 installed_size_kb="$(du -sk "$pkg" | awk '{print $1}')"
 cat > "$pkg/DEBIAN/control" <<CONTROL
 Package: jazzclub
@@ -58,7 +60,8 @@ Section: sound
 Priority: optional
 Architecture: ${arch}
 Maintainer: Ted Redington <ted@tedredington.com>
-Depends: ffmpeg, libasound2, libstdc++6
+Depends: libasound2, libstdc++6
+Suggests: ffmpeg
 Installed-Size: ${installed_size_kb}
 Homepage: https://github.com/tedtedted/jazzclub
 Description: Console client for Pandora internet radio
