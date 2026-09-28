@@ -17,6 +17,8 @@ public enum ConfigKey {
     USER("user", null),
     PASSWORD("password", null),
     PASSWORD_COMMAND("password_command", null),
+    LASTFM_PASSWORD("lastfm_password", null),
+    LASTFM_PASSWORD_COMMAND("lastfm_password_command", null),
 
     AUDIO_QUALITY("audio_quality", "jazzclub.audio-quality"),
     VOLUME("volume", "jazzclub.volume"),
@@ -32,6 +34,7 @@ public enum ConfigKey {
     DECODER("decoder", "jazzclub.decoder"),
     EVENT_COMMAND("event_command", "jazzclub.event-command", true),
     FIFO("fifo", "jazzclub.fifo", true),
+    LASTFM_USER("lastfm_user", "jazzclub.lastfm.user"),
 
     FORMAT_NOWPLAYING_SONG("format_nowplaying_song", "jazzclub.format.nowplaying-song"),
     FORMAT_NOWPLAYING_STATION("format_nowplaying_station", "jazzclub.format.nowplaying-station"),

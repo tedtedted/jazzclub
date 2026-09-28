@@ -52,6 +52,22 @@ class UserConfigFileTest {
     }
 
     @Test
+    void aReadableLastFmPasswordIsFlaggedToo() throws IOException {
+        Path file = write("lastfm_user = ted\nlastfm_password = hunter2\n", "rw-r--r--");
+
+        assertThat(userConfigFile.load(file).warnings()).singleElement().asString()
+                .contains("chmod 600 " + file)
+                .contains("lastfm_password_command")
+                .doesNotContain("hunter2");
+    }
+
+    @Test
+    void bothPasswordsReadableMakeOneWarningNotTwo() throws IOException {
+        assertThat(userConfigFile.load(write("password = a\nlastfm_password = b\n", "rw-r--r--")).warnings())
+                .hasSize(1);
+    }
+
+    @Test
     void aGroupReadableFileIsAlsoFlagged() throws IOException {
         assertThat(userConfigFile.load(write("password = x\n", "rw-r-----")).warnings()).hasSize(1);
     }

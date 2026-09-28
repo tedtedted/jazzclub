@@ -120,6 +120,7 @@ public final class PlayerLoop {
             case Event.TrackFinished(long id, var result) -> radio.onTrackFinished(id, result);
             case Event.Tick tick -> printTime();
             case Event.InputClosed closed -> state.requestQuit();
+            case Event.Notice(var type, var text) -> console.print(type, text + "\n");
         }
     }
 

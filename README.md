@@ -259,6 +259,9 @@ act_songban = disabled
 | `autoselect` | `1` | `0`: never pick a station for you, even if your filter leaves only one. |
 | `history` | `5` | How many played songs to remember. |
 | `event_command` | | A program to run on every event, see [Event scripts](#event-scripts). |
+| `lastfm_user` | | Your Last.fm user name. Turns on [scrobbling](#lastfm). |
+| `lastfm_password` | | Your Last.fm password. Only needed once, see [Last.fm](#lastfm). |
+| `lastfm_password_command` | | A shell command that prints it. Used when `lastfm_password` is not set. |
 | `fifo` | `~/.config/jazzclub/ctl` | Named pipe for [remote control](#remote-control). |
 | `max_retry` | `3` | Playback failures in a row before jazzclub stops the station. |
 | `timeout` | `30` | Network timeout in seconds. |
@@ -302,10 +305,59 @@ The connection settings `rpc_host`, `rpc_tls_port`, `partner_user`, `partner_pas
 `encrypt_password` and `decrypt_password` are supported too and default to pianobar's values. You
 will not normally need them.
 
+### Last.fm
+
+jazzclub scrobbles to [Last.fm](https://www.last.fm) by itself. Add two lines to the config file:
+
+```ini
+lastfm_user = ted
+lastfm_password_command = pass show last.fm
+```
+
+That is all: no API account to register, no script. On the next start, once the first song plays:
+
+```
+(i) Last.fm: scrobbling as ted.
+```
+
+jazzclub trades your password for a Last.fm session key once and keeps the key in
+`~/.local/state/jazzclub/lastfm-session`, readable by you only. After that, the password is not needed
+again, so a `lastfm_password_command` that asks for a passphrase asks only the first time. To sign in
+afresh, delete that file.
+
+What happens while you listen:
+
+- Your Last.fm profile shows the song as it starts.
+- A song is scrobbled when it ends, if you heard half of it or 4 minutes of it, whichever is less.
+  Songs of 30 seconds or less never count, and neither does time spent paused. These are Last.fm's
+  own rules. Skip early, and the song is not scrobbled.
+- Banning a song counts the same way: banned after you heard enough of it, it is still scrobbled.
+- Quitting in the middle of a song scrobbles it if you had heard enough.
+
+Nothing about Last.fm can stop jazzclub from starting or playing. A problem is reported once, in one
+line, whether or not you gave `-v`:
+
+```
+/!\ Last.fm: wrong user name or password for 'ted', not scrobbling. Check lastfm_user and lastfm_password in ~/.config/jazzclub/config.
+/!\ Last.fm is unreachable; songs played meanwhile will not be scrobbled.
+(i) Last.fm is reachable again.
+```
+
+A wrong password is tried only once per run, so jazzclub cannot get your Last.fm account locked; fix
+the config and restart. `-v` shows every request to Last.fm with its HTTP status.
+
+`lastfm_password` and `lastfm_password_command` follow the same rules as Pandora's `password` and
+`password_command`, see [Keeping your password out of the config file](#keeping-your-password-out-of-the-config-file).
+The network settings `proxy`, `timeout` and `ca_bundle` apply to Last.fm too; `control_proxy` and
+`bind_to` are for Pandora only.
+
+If you also scrobble from an [event script](#event-scripts), every song is scrobbled twice. Use one
+or the other.
+
 ### Event scripts
 
-jazzclub can tell a program of yours about everything that happens: to scrobble to Last.fm, to pop
-up a desktop notification, to log what you listened to. The interface is pianobar's, so scripts
+jazzclub can tell a program of yours about everything that happens: to pop up a desktop
+notification, to log what you listened to, to scrobble somewhere other than Last.fm. The interface is pianobar's, so scripts
 written for pianobar work unchanged, including the examples in its
 [contrib/eventcmd-examples](https://codeberg.org/purplesym/pianobar/src/branch/master/contrib/eventcmd-examples).
 
@@ -470,6 +522,8 @@ Deliberately different:
 
 - Every request to Pandora uses HTTPS. pianobar still sends some over plain HTTP.
 - jazzclub takes command line options; pianobar has none.
+- jazzclub scrobbles to Last.fm by itself. pianobar did too until 2010, and has left it to event
+  scripts since.
 - Audio is decoded in-process by [LavaPlayer](https://github.com/lavalink-devs/lavaplayer)'s MP4
   parser and the Fraunhofer FDK AAC decoder, so ffmpeg is optional. With `decoder = ffmpeg` it is
   decoded by the `ffmpeg` *program* rather than its libraries; while a song plays, its stream URL
@@ -489,6 +543,11 @@ sdk env install        # installs the JDK pinned in .sdkmanrc
 `./mvnw` is the Maven Wrapper: it fetches the Maven version this project is built with, so you do
 not need Maven installed. `./mvnw verify` runs the tests and fails below 80 % line coverage.
 `./mvnw package` builds a regular `target/jazzclub.jar` that runs on any Java 25 with `java -jar`.
+
+To build a jazzclub that can scrobble, copy `.env.example` to `.env` and fill in a
+[Last.fm API account](https://www.last.fm/api/account/create). Maven compiles the key into the
+build; `.env` itself is ignored by git and not read at run time. Without it everything else works,
+and setting `lastfm_user` only prints that this build has no Last.fm API key.
 
 Every push is tested by [GitHub Actions](.github/workflows/ci.yml). Release tags run the
 [release workflow](.github/workflows/release.yml), which builds native binaries, smoke-tests them,

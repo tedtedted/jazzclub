@@ -105,6 +105,27 @@ class EventQueuePrompterTest {
     }
 
     @Test
+    void aNoticeDuringThePromptWaitsUntilTheUserHasFinishedTyping() throws InterruptedException {
+        Event.Notice notice = new Event.Notice(MessageType.INFO, "Last.fm: scrobbling as ted.");
+        type("1");
+        events.publish(notice);
+        type("9", ENTER);
+
+        assertThat(prompter.readLine()).contains("19");
+        assertThat(events.take()).isEqualTo(notice);
+    }
+
+    @Test
+    void aNoticeWaitsForASingleKeyAnswerToo() throws InterruptedException {
+        Event.Notice notice = new Event.Notice(MessageType.ERROR, "Last.fm is unreachable.");
+        events.publish(notice);
+        type("a");
+
+        assertThat(prompter.readChar("sa")).contains('a');
+        assertThat(events.take()).isEqualTo(notice);
+    }
+
+    @Test
     void closedInputEndsThePromptAndStillReachesTheMainLoop() throws InterruptedException {
         type("ab");
         events.publish(new Event.InputClosed());
