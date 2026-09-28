@@ -53,14 +53,21 @@ class LavaplayerDecoderTest {
         assertThat(server.requestsFor(url)).hasSize(1);
     }
 
+    /**
+     * The first response breaks after 20000 bytes; how many of them reach the client before the
+     * failure shows depends on the operating system, so the resume starts at most there.
+     */
     @Test
     void resumesWithARangeRequestWhereTheConnectionDropped() throws Exception {
         URI url = server.mount("he-noise.m4a", Behaviour.NORMAL.droppingOnceAfter(20_000));
 
-        decode(decoders, url);
+        Result result = decode(decoders, url);
 
-        assertThat(server.requestsFor(url)).last().extracting(AudioFixtureServer.Request::range)
-                .isEqualTo("bytes=20000-");
+        assertThat(result.failure()).isNull();
+        assertThat(server.requestsFor(url)).hasSize(2).last().extracting(AudioFixtureServer.Request::range)
+                .asString().matches("bytes=\\d+-")
+                .satisfies(range -> assertThat(Long.parseLong(range.substring(6, range.length() - 1)))
+                        .isPositive().isLessThanOrEqualTo(20_000L));
     }
 
     @Test

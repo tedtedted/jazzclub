@@ -116,8 +116,6 @@ class DecoderConformanceTest {
     @ParameterizedTest
     @EnumSource(DecoderType.class)
     void reportsAServerThatDiesInsteadOfEndingTheSongEarly(DecoderType type) throws Exception {
-        knownGap(type, DecoderType.FFMPEG, "ffmpeg exits 0 here, see issue #13");
-
         assertThat(decode(type, server.mount("he-noise.m4a", Behaviour.NORMAL.dyingAfter(20_000))).failure())
                 .isNotNull();
     }
@@ -125,8 +123,6 @@ class DecoderConformanceTest {
     @ParameterizedTest
     @EnumSource(DecoderType.class)
     void reportsATruncatedFile(DecoderType type) throws Exception {
-        knownGap(type, DecoderType.FFMPEG, "ffmpeg exits 0 here, see issue #13");
-
         assertThat(decode(type, server.mount("truncated.m4a")).failure()).isNotNull();
     }
 
@@ -198,11 +194,6 @@ class DecoderConformanceTest {
                 yield FfmpegDecoder.factory("ffmpeg", null, FORMAT);
             }
         };
-    }
-
-    /** A difference that is known and tracked: skipped, with the reason, rather than hidden. */
-    private static void knownGap(DecoderType type, DecoderType affected, String reason) {
-        assumeTrue(type != affected, reason);
     }
 
     private static void requireFfmpeg() {

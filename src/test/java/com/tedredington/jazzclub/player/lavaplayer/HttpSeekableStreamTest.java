@@ -97,8 +97,7 @@ class HttpSeekableStreamTest {
         try (HttpSeekableStream stream = HttpSeekableStream.open(http, url)) {
             assertThat(stream.readAllBytes()).isEqualTo(file);
         }
-        assertThat(server.requestsFor(url)).extracting(AudioFixtureServer.Request::range)
-                .containsExactly(null, "bytes=10000-");
+        assertResumedOnceWithinTheFirst(url, 10_000);
     }
 
     @Test
@@ -119,8 +118,7 @@ class HttpSeekableStreamTest {
             assertThat(stream.readAllBytes()).isEqualTo(file);
         }
         assertThat(server.requestsFor(redirect)).hasSize(1);
-        assertThat(server.requestsFor(real)).extracting(AudioFixtureServer.Request::range)
-                .containsExactly(null, "bytes=10000-");
+        assertResumedOnceWithinTheFirst(real, 10_000);
     }
 
     @Test
@@ -149,5 +147,19 @@ class HttpSeekableStreamTest {
         assertThatThrownBy(stream::read).hasMessage("Stream closed");
         assertThat(stream.canSeekHard()).isTrue();
         assertThat(stream.getTrackInfoProviders()).isEmpty();
+    }
+
+    /**
+     * The first response broke after {@code sent} bytes, so the resume starts at most there: how
+     * much of it reached the client before the connection failed depends on the operating system.
+     * That the whole file arrived is what counts, and is asserted by the caller.
+     */
+    private static void assertResumedOnceWithinTheFirst(URI url, int sent) {
+        assertThat(server.requestsFor(url)).extracting(AudioFixtureServer.Request::range)
+                .hasSize(2)
+                .satisfies(ranges -> assertThat(ranges.get(0)).isNull())
+                .satisfies(ranges -> assertThat(ranges.get(1)).matches("bytes=\\d+-")
+                        .satisfies(range -> assertThat(Long.parseLong(range.substring(6, range.length() - 1)))
+                                .isPositive().isLessThanOrEqualTo(sent)));
     }
 }

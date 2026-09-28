@@ -23,6 +23,7 @@ class FfmpegCommandTest {
                 .containsSequence("-f", "s16le")
                 .containsSequence("-ar", "44100")
                 .containsSequence("-ac", "2")
+                .containsSequence("-reconnect_delay_max", "5")
                 .contains("-nostdin");
     }
 
