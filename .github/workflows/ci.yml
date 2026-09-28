@@ -41,9 +41,16 @@ jobs:
           distribution: graalvm-community
           cache: maven
 
+      # DecoderConformanceTest runs every check against both decoders; without ffmpeg its ffmpeg
+      # half would be skipped, so here a missing ffmpeg fails the build instead
+      - name: Install ffmpeg
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
+
       # fails below the JaCoCo line-coverage gate configured in pom.xml
       - name: Verify
         run: ./mvnw -B -ntp verify
+        env:
+          JAZZCLUB_REQUIRE_FFMPEG: 'true'
 
       - name: Upload coverage report
         if: always()

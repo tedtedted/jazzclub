@@ -23,7 +23,9 @@ public final class FfmpegCommand {
         return List.of(ffmpegExecutable,
                 "-nostdin", "-hide_banner", "-loglevel", "error",
                 "-protocol_whitelist", "http,https,tcp,tls,crypto",
-                "-reconnect", "1", "-reconnect_streamed", "1",
+                // retry a dropped connection after 0, 1, 2 and 4 s, then give up: ffmpeg's default of
+                // 120 s (still in 6.x) stalls a song for two minutes when the server is gone
+                "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
                 "-i", audioUrl.toString(),
                 "-vn", "-f", "s16le", "-acodec", "pcm_s16le", "-ar", String.valueOf(format.sampleRate()),
                 "-ac", String.valueOf(PcmFormat.CHANNELS),

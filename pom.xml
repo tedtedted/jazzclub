@@ -22,6 +22,9 @@
         <revision>0.1.0-SNAPSHOT</revision>
         <jline.version>4.4.5</jline.version>
         <picocli.version>4.7.7</picocli.version>
+        <lavaplayer.version>2.2.7</lavaplayer.version>
+        <!-- LavaPlayer's name for this build machine's platform; set by the natives-* profiles below -->
+        <lavaplayer.natives>none</lavaplayer.natives>
         <jacoco.version>0.8.15</jacoco.version>
         <archunit.version>1.5.1</archunit.version>
         <!-- minimum line coverage enforced by `mvn verify` -->
@@ -61,6 +64,15 @@
             <groupId>org.jline</groupId>
             <artifactId>jline-terminal-jni</artifactId>
             <version>${jline.version}</version>
+        </dependency>
+        <!--
+          The default decoder: only its MP4 parser and fdk-aac (JNI) are used, fed by our own HTTP
+          stream, so its player, HTTP client and source managers stay unreachable. See issue #9.
+        -->
+        <dependency>
+            <groupId>dev.arbjerg</groupId>
+            <artifactId>lavaplayer</artifactId>
+            <version>${lavaplayer.version}</version>
         </dependency>
 
         <dependency>
@@ -193,9 +205,8 @@
                 <version>${jacoco.version}</version>
                 <configuration>
                     <excludes>
-                        <!-- thin adapters over hardware and OS: a real sound card, a real tty, a real ffmpeg -->
+                        <!-- thin adapters over hardware and OS: a real sound card, a real tty -->
                         <exclude>com/tedredington/jazzclub/player/javasound/**</exclude>
-                        <exclude>com/tedredington/jazzclub/player/ffmpeg/FfmpegDecoder*</exclude>
                         <exclude>com/tedredington/jazzclub/terminal/**</exclude>
                     </excludes>
                 </configuration>
@@ -285,8 +296,82 @@
                             </execution>
                         </executions>
                     </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <!--
+                              The built-in decoder's native library (fdk-aac and friends), for this
+                              platform only: the lavaplayer-natives jar carries all of them (26 MB).
+                              Fraunhofer FDK AAC licence, see NOTICE.
+
+                              Packages install it next to the binary (see scripts/package-*.sh and
+                              LavaplayerNatives), so it is staged in target/ beside target/jazzclub.
+                              A copy is also embedded, for a bare binary with nothing installed: it
+                              is then unpacked into the cache directory at runtime.
+                            -->
+                            <execution>
+                                <id>stage-libconnector</id>
+                                <phase>process-resources</phase>
+                                <goals><goal>unpack</goal></goals>
+                                <configuration>
+                                    <!-- per execution: the plugin skips an artifact it has unpacked before -->
+                                    <markersDirectory>${project.build.directory}/markers/stage-libconnector</markersDirectory>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>dev.arbjerg</groupId>
+                                            <artifactId>lavaplayer-natives</artifactId>
+                                            <version>${lavaplayer.version}</version>
+                                            <includes>natives/${lavaplayer.natives}/libconnector.*</includes>
+                                            <outputDirectory>${project.build.directory}</outputDirectory>
+                                            <fileMappers>
+                                                <org.codehaus.plexus.components.io.filemappers.FlattenFileMapper/>
+                                            </fileMappers>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>embed-libconnector</id>
+                                <phase>process-resources</phase>
+                                <goals><goal>unpack</goal></goals>
+                                <configuration>
+                                    <!-- per execution: the plugin skips an artifact it has unpacked before -->
+                                    <markersDirectory>${project.build.directory}/markers/embed-libconnector</markersDirectory>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>dev.arbjerg</groupId>
+                                            <artifactId>lavaplayer-natives</artifactId>
+                                            <version>${lavaplayer.version}</version>
+                                            <includes>natives/${lavaplayer.natives}/libconnector.*</includes>
+                                            <outputDirectory>${project.build.outputDirectory}/native-libs</outputDirectory>
+                                            <fileMappers>
+                                                <org.codehaus.plexus.components.io.filemappers.FlattenFileMapper/>
+                                            </fileMappers>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
+        </profile>
+        <!-- LavaPlayer's platform names for the machines jazzclub is released from -->
+        <profile>
+            <id>natives-darwin</id>
+            <activation><os><family>mac</family></os></activation>
+            <properties><lavaplayer.natives>darwin</lavaplayer.natives></properties>
+        </profile>
+        <profile>
+            <id>natives-linux-x86-64</id>
+            <activation><os><name>Linux</name><arch>amd64</arch></os></activation>
+            <properties><lavaplayer.natives>linux-x86-64</lavaplayer.natives></properties>
+        </profile>
+        <profile>
+            <id>natives-linux-aarch64</id>
+            <activation><os><name>Linux</name><arch>aarch64</arch></os></activation>
+            <properties><lavaplayer.natives>linux-aarch64</lavaplayer.natives></properties>
         </profile>
     </profiles>
 </project>
