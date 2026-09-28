@@ -27,37 +27,48 @@ if [[ ! -s "$completion" ]]; then
   exit 66
 fi
 
+# The built-in decoder's native library, installed next to the binary (see LavaplayerNatives). The
+# native Maven build stages this platform's copy beside target/jazzclub.
+library="${LIBCONNECTOR:-$(dirname "$binary")/libconnector.dylib}"
+if [[ ! -s "$library" ]]; then
+  echo "decoder library is missing: $library (the native Maven build stages it next to the binary)" >&2
+  exit 66
+fi
+
 root="$(mktemp -d)"
 trap 'rm -rf "$root"' EXIT
 
 bundle="$root/jazzclub-${version}-macos-${arch}"
-install -d "$bundle/bin" "$bundle/share/doc/jazzclub" "$bundle/share/licenses/jazzclub" \
-  "$bundle/share/bash-completion/completions"
+install -d "$bundle/bin" "$bundle/libexec/jazzclub" "$bundle/share/doc/jazzclub" \
+  "$bundle/share/licenses/jazzclub" "$bundle/share/bash-completion/completions"
 install -m 0755 "$binary" "$bundle/bin/jazzclub"
+install -m 0644 "$library" "$bundle/libexec/jazzclub/libconnector.dylib"
 install -m 0644 README.md "$bundle/share/doc/jazzclub/README.md"
 install -m 0644 LICENSE "$bundle/share/licenses/jazzclub/LICENSE"
 install -m 0644 NOTICE "$bundle/share/licenses/jazzclub/NOTICE"
+install -m 0644 licenses/*.txt "$bundle/share/licenses/jazzclub/"
 install -m 0644 "$completion" "$bundle/share/bash-completion/completions/jazzclub"
 
 cat > "$bundle/INSTALL.md" <<INSTALL
 # jazzclub ${version}
 
-Install ffmpeg first:
+jazzclub decodes Pandora's audio itself. ffmpeg is optional: only \`decoder = ffmpeg\`, a
+\`sample_rate\` other than 44100, or a machine where the built-in decoder cannot load need it
+(\`brew install ffmpeg\`).
 
-\`\`\`sh
-brew install ffmpeg
-\`\`\`
-
-Then copy the binary somewhere on your PATH:
+Copy the binary somewhere on your PATH, and its decoder library into
+\`libexec/jazzclub\` beside that \`bin\` (jazzclub looks for it there):
 
 \`\`\`sh
 install -m 755 bin/jazzclub /usr/local/bin/jazzclub
+install -d /usr/local/libexec/jazzclub
+install -m 644 libexec/jazzclub/libconnector.dylib /usr/local/libexec/jazzclub/
 \`\`\`
 
-A downloaded binary is quarantined by macOS. Clear that once:
+Downloaded files are quarantined by macOS. Clear that once:
 
 \`\`\`sh
-xattr -d com.apple.quarantine /usr/local/bin/jazzclub
+xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclub/libconnector.dylib
 \`\`\`
 
 For tab completion in bash or zsh, add this to your shell profile:

@@ -26,15 +26,19 @@ import com.tedredington.jazzclub.config.file.XdgDirectories;
 import com.tedredington.jazzclub.credentials.CredentialsProvider;
 import com.tedredington.jazzclub.event.Event;
 import com.tedredington.jazzclub.event.EventQueue;
+import com.tedredington.jazzclub.network.HttpClientFactory;
 import com.tedredington.jazzclub.network.ProxySettings;
 import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.player.AudioPlayer;
 import com.tedredington.jazzclub.player.AudioSink;
+import com.tedredington.jazzclub.player.Decoder;
 import com.tedredington.jazzclub.player.PcmFormat;
 import com.tedredington.jazzclub.player.StreamingAudioPlayer;
 import com.tedredington.jazzclub.player.ffmpeg.FfmpegDecoder;
 import com.tedredington.jazzclub.player.javasound.JavaSoundAudioSink;
 import com.tedredington.jazzclub.player.javasound.JavaSoundNativeSupport;
+import com.tedredington.jazzclub.player.lavaplayer.LavaplayerDecoder;
+import com.tedredington.jazzclub.player.lavaplayer.LavaplayerNatives;
 import com.tedredington.jazzclub.player.pipe.PipeAudioSink;
 import com.tedredington.jazzclub.remote.ControlFifo;
 import com.tedredington.jazzclub.terminal.TerminalSession;
@@ -89,20 +93,31 @@ class AppConfiguration {
         return new PlaybackState(properties.history());
     }
 
-    /** Lazy: nothing touches the sound system until the first song. */
+    /** Lazy: nothing touches the sound system, or loads a decoder, until the first song. */
     @Bean
     @Lazy
-    AudioPlayer audioPlayer(JazzclubProperties properties, PandoraProperties pandora, EventQueue events) {
-        JavaSoundNativeSupport.prepare(XdgDirectories.system().cacheDirectory().resolve("lib"));
+    AudioPlayer audioPlayer(JazzclubProperties properties, PandoraProperties pandora, EventQueue events,
+                            Console console) {
+        Path nativeLibraries = XdgDirectories.system().cacheDirectory().resolve("lib");
+        JavaSoundNativeSupport.prepare(nativeLibraries);
         ProxySettings streamProxy = pandora.streamProxy(System.getenv("http_proxy"));
         PcmFormat format = PcmFormat.of(properties.sampleRate());
         Supplier<AudioSink> sinks = properties.audioPipe() != null
                 ? () -> new PipeAudioSink(properties.audioPipe(), format)
                 : () -> new JavaSoundAudioSink(format);
+        Decoder.Factory decoders = DecoderSelection.choose(properties.decoder(), format,
+                () -> {
+                    LavaplayerNatives.prepare(nativeLibraries);
+                    // like ffmpeg and pianobar: only the proxy applies to audio; bind_to and ca_bundle
+                    // are for the control connection (see README, Network)
+                    return LavaplayerDecoder.factory(
+                            HttpClientFactory.create(pandora.timeout(), streamProxy, null, null), format);
+                },
+                () -> FfmpegDecoder.factory(properties.ffmpeg(),
+                        streamProxy == null ? null : streamProxy.toEnvironmentValue(), format),
+                message -> console.info(message + "\n"));
         return new StreamingAudioPlayer(
-                FfmpegDecoder.factory(properties.ffmpeg(),
-                                streamProxy == null ? null : streamProxy.toEnvironmentValue(), format)
-                        .prefetching(properties.bufferSeconds() * format.bytesPerSecond()),
+                decoders.prefetching(properties.bufferSeconds() * format.bytesPerSecond()),
                 sinks,
                 (id, result) -> events.publish(new Event.TrackFinished(id, result)),
                 properties.volume(),

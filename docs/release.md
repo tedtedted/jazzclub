@@ -61,9 +61,14 @@ Each release publishes:
 - macOS archive: `jazzclub-<version>-macos-<arch>.tar.gz`
 - `SHA256SUMS` files for each package build
 
-The packages install jazzclub, its documentation and bash completion. Runtime dependencies are left to
-the operating system's package manager and declared in the packages: `ffmpeg`, and on Linux the ALSA
-library (`libasound2` on Debian, `alsa-lib` on Arch), which the Java Sound code inside the binary loads.
+The packages install jazzclub, the built-in decoder's native library `libconnector` (to
+`/usr/lib/jazzclub/`, or `libexec/jazzclub/` in the macOS archive), its documentation, bash completion,
+and the licence texts from `licenses/`. The native build stages `libconnector` beside `target/jazzclub`;
+a packaging script stops if it is missing. Runtime dependencies are left to the operating system's
+package manager and declared in the packages: on Linux the ALSA library (`libasound2` on Debian,
+`alsa-lib` on Arch), which the Java Sound code inside the binary loads, and libstdc++ (`libstdc++6`,
+`gcc-libs`), which `libconnector` needs. `ffmpeg` is only suggested (Debian) or optional (Arch): the
+built-in decoder does not need it.
 
 The Linux binaries are built on Ubuntu 22.04 on purpose. A binary only starts on a glibc at least as
 new as the one it was linked against, and 22.04's glibc 2.35 is older than Debian 12's 2.36. Moving the
