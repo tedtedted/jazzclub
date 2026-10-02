@@ -11,4 +11,10 @@ interface LastFmClient {
 
     /** {@code track.scrobble}. */
     void scrobble(String sessionKey, Scrobble scrobble);
+
+    /** {@code track.love}. Loving a loved track again is harmless. */
+    void love(String sessionKey, Track track);
+
+    /** {@code track.unlove}. Harmless for a track that was never loved. */
+    void unlove(String sessionKey, Track track);
 }

@@ -77,6 +77,25 @@ final class HttpLastFmClient implements LastFmClient {
         }
     }
 
+    @Override
+    public void love(String sessionKey, Track track) {
+        call("track.love", identity(sessionKey, track));
+    }
+
+    @Override
+    public void unlove(String sessionKey, Track track) {
+        call("track.unlove", identity(sessionKey, track));
+    }
+
+    /** {@code track.love} and {@code track.unlove} take only artist and title, nothing else. */
+    private static Map<String, String> identity(String sessionKey, Track track) {
+        Map<String, String> parameters = new LinkedHashMap<>();
+        parameters.put("artist", track.artist());
+        parameters.put("track", track.title());
+        parameters.put("sk", sessionKey);
+        return parameters;
+    }
+
     private static Map<String, String> trackParameters(Track track, String index) {
         Map<String, String> parameters = new LinkedHashMap<>();
         parameters.put("artist" + index, track.artist());

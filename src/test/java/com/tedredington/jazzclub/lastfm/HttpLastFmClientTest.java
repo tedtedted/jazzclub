@@ -92,6 +92,22 @@ class HttpLastFmClientTest {
     }
 
     @Test
+    void lovingAndUnlovingSendOnlyArtistAndTitle() {
+        for (String method : new String[] {"track.love", "track.unlove"}) {
+            server.expect(requestTo(ENDPOINT))
+                    .andExpect(content().formDataContains(signed(Map.of(
+                            "method", method, "sk", "sk1", "artist", "Bill Evans", "track", "Nardis"))))
+                    .andExpect(request -> assertThat(((MockClientHttpRequest) request).getBodyAsString())
+                            .doesNotContain("album", "duration"))
+                    .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+        }
+
+        client.love("sk1", NARDIS);
+        client.unlove("sk1", NARDIS);
+        server.verify();
+    }
+
+    @Test
     void anIgnoredScrobbleIsNotAnError() {
         server.expect(requestTo(ENDPOINT))
                 .andRespond(withSuccess("{\"scrobbles\":{\"@attr\":{\"accepted\":0,\"ignored\":1}}}",

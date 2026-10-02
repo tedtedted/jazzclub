@@ -37,14 +37,20 @@ class LastFmListenerTest {
     private Instant now = START;
     private LastFmListener listener;
 
+    private Scrobbler scrobbler;
+
+    private static LastFmListener listener(Scrobbler scrobbler, InstantSource clock, boolean love) {
+        return new LastFmListener(scrobbler, clock, love);
+    }
+
     @BeforeEach
     void setUp() {
         SessionFile sessions = new SessionFile(directory.resolve("lastfm-session"));
         sessions.save(new Session("ted", "sk"));
-        Scrobbler scrobbler = new Scrobbler(client, "ted", Optional::empty, sessions, notice -> { },
+        scrobbler = new Scrobbler(client, "ted", Optional::empty, sessions, notice -> { },
                 Path.of("config"), Duration.ofSeconds(5));
         InstantSource clock = () -> now;
-        listener = new LastFmListener(scrobbler, clock);
+        listener = listener(scrobbler, clock, true);
     }
 
     private void publish(EventType type, Song song, Duration played) {
@@ -75,13 +81,77 @@ class LastFmListenerTest {
     }
 
     @Test
+    void aThumbsUpLovesTheTrackOnLastFmAndABanTakesItBack() {
+        publish(EventType.SONG_START, NARDIS, Duration.ZERO);
+        publish(EventType.SONG_LOVE, NARDIS.withRating(Rating.LOVE), Duration.ofSeconds(10));
+        publish(EventType.SONG_BAN, NARDIS.withRating(Rating.BAN), Duration.ofSeconds(20));
+
+        assertThat(calls()).containsExactly("nowPlaying sk Nardis", "love sk Nardis", "unlove sk Nardis");
+    }
+
+    @Test
+    void aSongLikedLongAgoIsLovedWhenItPlaysButOnlyOncePerRun() {
+        Song likedEarlier = NARDIS.withRating(Rating.LOVE);
+        publish(EventType.SONG_START, likedEarlier, Duration.ZERO);
+        publish(EventType.SONG_FINISH, likedEarlier, Duration.ofSeconds(10));
+        publish(EventType.SONG_START, likedEarlier, Duration.ZERO);
+        publish(EventType.SONG_LOVE, likedEarlier, Duration.ZERO);
+
+        assertThat(calls()).containsExactly("nowPlaying sk Nardis", "love sk Nardis", "nowPlaying sk Nardis");
+    }
+
+    @Test
+    void afterABanAThumbsUpLovesAgain() {
+        publish(EventType.SONG_LOVE, NARDIS.withRating(Rating.LOVE), Duration.ZERO);
+        publish(EventType.SONG_BAN, NARDIS.withRating(Rating.BAN), Duration.ZERO);
+        publish(EventType.SONG_LOVE, NARDIS.withRating(Rating.LOVE), Duration.ZERO);
+
+        assertThat(calls()).containsExactly("love sk Nardis", "unlove sk Nardis", "love sk Nardis");
+    }
+
+    @Test
+    void sameSongInAnotherCaseIsTheSameLove() {
+        Song shouting = new Song("NARDIS", NARDIS.artist().toUpperCase(), null, "t2", "200", NARDIS.audioUrl(),
+                NARDIS.encoding(), null, null, 0, NARDIS.length(), Rating.LOVE);
+        publish(EventType.SONG_LOVE, NARDIS.withRating(Rating.LOVE), Duration.ZERO);
+        publish(EventType.SONG_LOVE, shouting, Duration.ZERO);
+
+        assertThat(calls()).containsExactly("love sk Nardis");
+    }
+
+    @Test
+    void tiredSaysNothingAboutLiking() {
+        publish(EventType.SONG_SHELF, NARDIS.withRating(Rating.TIRED), Duration.ZERO);
+
+        assertThat(calls()).isEmpty();
+    }
+
+    @Test
+    void withLastfmLoveOffThumbsStayOnPandora() {
+        listener = listener(scrobbler, () -> now, false);
+        publish(EventType.SONG_START, NARDIS.withRating(Rating.LOVE), Duration.ZERO);
+        publish(EventType.SONG_LOVE, NARDIS.withRating(Rating.LOVE), Duration.ZERO);
+        publish(EventType.SONG_BAN, NARDIS.withRating(Rating.BAN), Duration.ZERO);
+
+        assertThat(calls()).containsExactly("nowPlaying sk Nardis");
+    }
+
+    @Test
+    void aLoveThatFailedOnPandoraIsNotPassedOn() {
+        listener.on(new PlayerEvent(EventType.SONG_LOVE, EventResult.of(new PandoraTransportException("x", null)),
+                EVANS, NARDIS.withRating(Rating.LOVE), null, Duration.ZERO, List.of(), List.of()));
+
+        assertThat(calls()).isEmpty();
+    }
+
+    @Test
     void aLateBanStillCountsAsAListen() {
         Song banned = NARDIS.withRating(Rating.BAN);
         publish(EventType.SONG_START, NARDIS, Duration.ZERO);
         publish(EventType.SONG_BAN, banned, Duration.ofSeconds(150));
         publish(EventType.SONG_FINISH, banned, Duration.ofSeconds(150));
 
-        assertThat(calls()).containsExactly("nowPlaying sk Nardis", "scrobble sk Nardis");
+        assertThat(calls()).containsExactly("nowPlaying sk Nardis", "unlove sk Nardis", "scrobble sk Nardis");
     }
 
     @Test
@@ -126,7 +196,7 @@ class LastFmListenerTest {
 
     @Test
     void withoutAScrobblerNothingHappensAndClosingIsFine() {
-        LastFmListener off = new LastFmListener(null, () -> now);
+        LastFmListener off = new LastFmListener(null, () -> now, true);
 
         off.on(new PlayerEvent(EventType.SONG_START, EventResult.OK, EVANS, NARDIS, null, Duration.ZERO, List.of(),
                 List.of()));

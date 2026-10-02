@@ -77,6 +77,14 @@ final class Scrobbler implements AutoCloseable {
         worker.execute(() -> attempt(key -> client.scrobble(key, scrobble)));
     }
 
+    void love(Track track) {
+        worker.execute(() -> attempt(key -> client.love(key, track)));
+    }
+
+    void unlove(Track track) {
+        worker.execute(() -> attempt(key -> client.unlove(key, track)));
+    }
+
     @Override
     public void close() {
         worker.shutdown();

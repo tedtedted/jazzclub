@@ -40,6 +40,18 @@ final class FakeLastFmClient implements LastFmClient {
         throwIfQueued(failNext);
     }
 
+    @Override
+    public void love(String sessionKey, Track track) {
+        calls.add("love " + sessionKey + " " + track.title());
+        throwIfQueued(failNext);
+    }
+
+    @Override
+    public void unlove(String sessionKey, Track track) {
+        calls.add("unlove " + sessionKey + " " + track.title());
+        throwIfQueued(failNext);
+    }
+
     private void sleep() {
         try {
             Thread.sleep(delay);

@@ -35,6 +35,7 @@ public enum ConfigKey {
     EVENT_COMMAND("event_command", "jazzclub.event-command", true),
     FIFO("fifo", "jazzclub.fifo", true),
     LASTFM_USER("lastfm_user", "jazzclub.lastfm.user"),
+    LASTFM_LOVE("lastfm_love", "jazzclub.lastfm.love"),
 
     FORMAT_NOWPLAYING_SONG("format_nowplaying_song", "jazzclub.format.nowplaying-song"),
     FORMAT_NOWPLAYING_STATION("format_nowplaying_station", "jazzclub.format.nowplaying-station"),

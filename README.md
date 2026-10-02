@@ -262,6 +262,7 @@ act_songban = disabled
 | `lastfm_user` | | Your Last.fm user name. Turns on [scrobbling](#lastfm). |
 | `lastfm_password` | | Your Last.fm password. Only needed once, see [Last.fm](#lastfm). |
 | `lastfm_password_command` | | A shell command that prints it. Used when `lastfm_password` is not set. |
+| `lastfm_love` | `1` | `0`: loving or banning a song leaves Last.fm alone. |
 | `fifo` | `~/.config/jazzclub/ctl` | Named pipe for [remote control](#remote-control). |
 | `max_retry` | `3` | Playback failures in a row before jazzclub stops the station. |
 | `timeout` | `30` | Network timeout in seconds. |
@@ -332,6 +333,9 @@ What happens while you listen:
   Songs of 30 seconds or less never count, and neither does time spent paused. These are Last.fm's
   own rules. Skip early, and the song is not scrobbled.
 - Banning a song counts the same way: banned after you heard enough of it, it is still scrobbled.
+- Loving a song (`+`) loves it on Last.fm too, and banning it (`-`) takes that love back. A song you
+  thumbed up before, here or in Pandora's own apps, is loved on Last.fm the next time it plays, so your
+  old likes arrive there over time. `lastfm_love = 0` keeps your thumbs on Pandora only.
 - Quitting in the middle of a song scrobbles it if you had heard enough.
 
 Nothing about Last.fm can stop jazzclub from starting or playing. A problem is reported once, in one
