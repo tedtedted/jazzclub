@@ -1,10 +1,14 @@
 # jazzclub
 
-A console client for [Pandora](https://www.pandora.com) internet radio.
+[![CI](https://github.com/tedtedted/jazzclub/actions/workflows/ci.yml/badge.svg)](https://github.com/tedtedted/jazzclub/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/tedtedted/jazzclub?sort=semver)](https://github.com/tedtedted/jazzclub/releases)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-jazzclub is a port of the wonderful [pianobar](https://codeberg.org/purplesym/pianobar) to Java. It looks
-the same, uses the same keys and reads the same config format, and ships as a single native binary
-that starts in a few milliseconds.
+A fast console client for [Pandora](https://www.pandora.com) internet radio.
+
+jazzclub is a Java/GraalVM port of the wonderful
+[pianobar](https://codeberg.org/purplesym/pianobar). It looks familiar, uses the same keys, reads the
+same config format, and ships as native packages that do not need a Java runtime.
 
 ```
 Welcome to jazzclub (0.1.0)! Press ? for a list of commands.
@@ -20,31 +24,67 @@ Welcome to jazzclub (0.1.0)! Press ? for a list of commands.
 #   -05:41/06:43
 ```
 
-> Pandora is only available in the United States. You need a Pandora account; a free one works.
+> Pandora is only available in the United States. jazzclub needs a Pandora account; a free one works.
+
+## Contents
+
+- [Why jazzclub?](#why-jazzclub)
+- [Requirements](#requirements)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Last.fm](#lastfm)
+- [Event scripts](#event-scripts)
+- [Multi-room audio](#multi-room-audio)
+- [Remote control](#remote-control)
+- [Troubleshooting](#troubleshooting)
+- [Building](#building)
+- [Licence](#licence)
+
+## Why jazzclub?
+
+- **Small, quick, native**: packaged as a GraalVM native binary, so it starts in a few milliseconds
+  and does not require Java on the machine where you listen.
+- **Pianobar-compatible**: the default keys, config file format, format strings and event script
+  interface are intentionally close to pianobar.
+- **Built-in audio decoding**: Pandora's AAC streams play without ffmpeg in the normal case.
+- **Good terminal manners**: single-key controls, station search, song history, remote control
+  through a named pipe, and plain text output that works well with scripts.
+- **Optional integrations**: Last.fm scrobbling, event scripts, custom audio pipes for Snapcast or
+  other multi-room audio setups, proxies, custom CA bundles and interface binding.
 
 ## Requirements
 
-- Optionally **ffmpeg** on your `PATH`. jazzclub decodes Pandora's audio itself; ffmpeg is only
-  needed for `decoder = ffmpeg`, for a `sample_rate` other than 44100, or as a fallback on a system
-  where the built-in decoder does not load (see [`decoder`](#settings)).
+jazzclub's release packages include the player and built-in decoder. No Java installation is needed.
 
-  | System | Install |
-  |---|---|
-  | macOS | `brew install ffmpeg` |
-  | Arch Linux | `sudo pacman -S ffmpeg` |
-  | Debian / Ubuntu | `sudo apt install ffmpeg` |
-
-- On **Linux**, the ALSA library, which every desktop system has (`libasound2` on Debian and Ubuntu,
-  `alsa-lib` on Arch). With PipeWire or PulseAudio also their ALSA bridge, see
+- **Pandora account**: free accounts work. Pandora itself is available only in the United States.
+- **Linux audio**: the ALSA library, which every desktop system usually has (`libasound2` on Debian
+  and Ubuntu, `alsa-lib` on Arch). With PipeWire or PulseAudio also install their ALSA bridge; see
   [Troubleshooting](#troubleshooting).
+- **ffmpeg, optional**: install it only if you set `decoder = ffmpeg`, choose a `sample_rate` other
+  than `44100`, or need the fallback decoder on a system where the built-in decoder cannot load.
 
-Nothing else. The binary contains everything it needs; no Java installation is required to run it.
+| System | Optional ffmpeg install |
+|---|---|
+| macOS | `brew install ffmpeg` |
+| Debian / Ubuntu | `sudo apt install ffmpeg` |
+| Arch Linux | `sudo pacman -S ffmpeg` |
 
 ## Install
 
-Packages are on the [releases page](https://github.com/tedtedted/jazzclub/releases). On Linux they
-pull in the ALSA library and libstdc++ through your package manager; ffmpeg is suggested (Debian)
-or optional (Arch), since only `decoder = ffmpeg` and resampling need it.
+Download the package for your system from the
+[GitHub releases page](https://github.com/tedtedted/jazzclub/releases). Release files are named by
+platform and architecture:
+
+| System | Download | Install |
+|---|---|---|
+| Debian 12 / Ubuntu 22.04 or newer | `jazzclub_<version>_amd64.deb` or `jazzclub_<version>_arm64.deb` | `sudo apt install ./jazzclub_<version>_<arch>.deb` |
+| Arch Linux | `jazzclub-<version>-1-x86_64.pkg.tar.zst` or `jazzclub-<version>-1-aarch64.pkg.tar.zst` | `sudo pacman -U jazzclub-<version>-1-<arch>.pkg.tar.zst` |
+| macOS Apple Silicon | `jazzclub-<version>-macos-arm64.tar.gz` | unpack it and install `bin/jazzclub` plus `libexec/jazzclub/libconnector.dylib` |
+
+On Linux, the packages declare the runtime libraries they need through your package manager. ffmpeg
+is only suggested or optional because the default decoder does not need it.
 
 **Debian, Ubuntu** (Debian 12 and Ubuntu 22.04 or newer; `amd64` and `arm64`)
 
@@ -69,8 +109,8 @@ sudo install -m 644 jazzclub-0.1.0-macos-arm64/libexec/jazzclub/libconnector.dyl
 xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclub/libconnector.dylib
 ```
 
-The decoder library goes in `libexec/jazzclub` beside the `bin` you install into; jazzclub also
-finds it in the binary's own directory.
+The decoder library goes in `libexec/jazzclub` beside the `bin` directory you install into; jazzclub
+also finds it in the binary's own directory.
 
 Every release comes with `SHA256SUMS-*` files; check your download with `sha256sum -c` (on macOS
 `shasum -a 256 -c`). The Linux packages install tab completion for bash; the macOS archive has it
@@ -81,7 +121,7 @@ A Homebrew tap and an AUR package are planned. To build from source instead, see
 
 ## Quick start
 
-1. Create the config file:
+1. Create a private config file:
 
    ```sh
    mkdir -p ~/.config/jazzclub && chmod 700 ~/.config/jazzclub
@@ -97,7 +137,15 @@ A Homebrew tap and an AUR package are planned. To build from source instead, see
    chmod 600 ~/.config/jazzclub/config
    ```
 
-2. Run `jazzclub`, type a station number (or part of its name) and press Enter.
+2. Start the player:
+
+   ```sh
+   jazzclub
+   ```
+
+3. Pick a station by number, or type part of its name and press Enter. While music is playing,
+   single key presses control it: `?` shows the full key list, `n` skips, `p` pauses, `+` loves, and
+   `q` quits.
 
 Better than a password in a file: let a password manager hand it over, see
 [Keeping your password out of the config file](#keeping-your-password-out-of-the-config-file).
