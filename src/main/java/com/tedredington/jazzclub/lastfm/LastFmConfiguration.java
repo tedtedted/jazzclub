@@ -37,12 +37,12 @@ class LastFmConfiguration {
                                   CommandRunner commandRunner, EventQueue events, InstantSource clock,
                                   RestClient.Builder restClient) {
         if (!lastfm.isEnabled()) {
-            return new LastFmListener(null, clock);
+            return new LastFmListener(null, clock, false);
         }
         if (!lastfm.hasApiAccount()) {
             events.publish(new Event.Notice(MessageType.ERROR,
                     "Last.fm: this build of jazzclub has no Last.fm API key, not scrobbling."));
-            return new LastFmListener(null, clock);
+            return new LastFmListener(null, clock, false);
         }
         Path configFile = app.configFile();
         UserConfigFile file = new UserConfigFile();
@@ -57,7 +57,7 @@ class LastFmConfiguration {
                 events::publish,
                 configFile,
                 DRAIN_ON_EXIT);
-        return new LastFmListener(scrobbler, clock);
+        return new LastFmListener(scrobbler, clock, lastfm.love());
     }
 
     /**

@@ -13,13 +13,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param apiKey    jazzclub's own API account, from {@code application.properties}; not a user setting
  * @param apiSecret the shared secret that goes with {@code apiKey}
  * @param endpoint  the API root, replaceable for tests
+ * @param love      {@code lastfm_love}: pass loves and bans on Pandora on to Last.fm
  */
 @ConfigurationProperties("jazzclub.lastfm")
 public record LastFmProperties(
         String user,
         String apiKey,
         String apiSecret,
-        @DefaultValue("https://ws.audioscrobbler.com/2.0/") URI endpoint) {
+        @DefaultValue("https://ws.audioscrobbler.com/2.0/") URI endpoint,
+        @DefaultValue("true") boolean love) {
 
     boolean isEnabled() {
         return user != null && !user.isBlank();

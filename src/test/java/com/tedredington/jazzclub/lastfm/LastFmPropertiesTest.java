@@ -17,18 +17,18 @@ class LastFmPropertiesTest {
     @NullSource
     @ValueSource(strings = {"", "   "})
     void aBlankUserMeansScrobblingIsOff(String user) {
-        assertThat(new LastFmProperties(user, "k", "s", ENDPOINT).isEnabled()).isFalse();
+        assertThat(new LastFmProperties(user, "k", "s", ENDPOINT, true).isEnabled()).isFalse();
     }
 
     @Test
     void anyUserTurnsItOn() {
-        assertThat(new LastFmProperties("ted", "k", "s", ENDPOINT).isEnabled()).isTrue();
+        assertThat(new LastFmProperties("ted", "k", "s", ENDPOINT, true).isEnabled()).isTrue();
     }
 
     @Test
     void bothHalvesOfTheApiAccountAreNeeded() {
-        assertThat(new LastFmProperties("ted", "k", "s", ENDPOINT).hasApiAccount()).isTrue();
-        assertThat(new LastFmProperties("ted", "k", " ", ENDPOINT).hasApiAccount()).isFalse();
-        assertThat(new LastFmProperties("ted", null, "s", ENDPOINT).hasApiAccount()).isFalse();
+        assertThat(new LastFmProperties("ted", "k", "s", ENDPOINT, true).hasApiAccount()).isTrue();
+        assertThat(new LastFmProperties("ted", "k", " ", ENDPOINT, true).hasApiAccount()).isFalse();
+        assertThat(new LastFmProperties("ted", null, "s", ENDPOINT, true).hasApiAccount()).isFalse();
     }
 }

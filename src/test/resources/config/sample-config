@@ -10,3 +10,5 @@ volume = -4
 sort = quickmix_01_name_za
 autoselect = 0
 format_msg_err = !! %s
+# pianobar-style boolean
+lastfm_love = 0
