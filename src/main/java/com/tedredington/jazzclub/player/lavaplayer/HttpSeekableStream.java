@@ -12,6 +12,8 @@ import java.util.List;
 
 import com.sedmelluq.discord.lavaplayer.tools.io.SeekableInputStream;
 import com.sedmelluq.discord.lavaplayer.track.info.AudioTrackInfoProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An audio file over HTTP for LavaPlayer's MP4 parser, read through jazzclub's own
@@ -23,6 +25,8 @@ import com.sedmelluq.discord.lavaplayer.track.info.AudioTrackInfoProvider;
  * before its {@code Content-Length} is an error, not a short song.
  */
 final class HttpSeekableStream extends SeekableInputStream {
+
+    private static final Logger log = LoggerFactory.getLogger(HttpSeekableStream.class);
 
     /** Forward seeks up to this far read and discard instead of starting a new request. */
     private static final long MAX_SKIP_DISTANCE = 512 * 1024;
@@ -138,6 +142,7 @@ final class HttpSeekableStream extends SeekableInputStream {
             throw cause;
         }
         resumes++;
+        log.debug("Resuming at byte {} of {} after: {}", position, getContentLength(), cause.toString());
         try {
             reopenAt(position);
         } catch (IOException e) {

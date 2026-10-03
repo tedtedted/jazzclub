@@ -14,6 +14,8 @@ import com.sedmelluq.discord.lavaplayer.container.mpeg.MpegTrackInfo;
 import com.sedmelluq.discord.lavaplayer.container.mpeg.reader.MpegFileTrackProvider;
 import com.tedredington.jazzclub.player.Decoder;
 import com.tedredington.jazzclub.player.PcmFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Decodes Pandora's AAC-in-MP4 in-process: our {@link HttpSeekableStream} feeds LavaPlayer's MP4
@@ -22,6 +24,7 @@ import com.tedredington.jazzclub.player.PcmFormat;
  */
 public final class LavaplayerDecoder implements Decoder {
 
+    private static final Logger log = LoggerFactory.getLogger(LavaplayerDecoder.class);
     private static final int PIPE_BYTES = 64 * 1024;
 
     private final PipedInputStream pcm;
@@ -70,6 +73,7 @@ public final class LavaplayerDecoder implements Decoder {
             consumer.flush();
         } catch (Exception e) {
             if (!closed) {
+                log.debug("Decoding failed", e);
                 failure = "Decoding failed: " + describe(e);
             }
         } finally {
