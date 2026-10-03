@@ -75,8 +75,9 @@ on.
 
 4. **The release workflow** refuses a tag whose commit is not on `main`, checks the changelog, runs
    the tests, builds native binaries with the tag's version baked in, smoke tests them with
-   `scripts/smoke-test.sh` (the same script CI uses), packages them, writes one `SHA256SUMS` and
-   publishes the GitHub release with the changelog section as its notes.
+   `scripts/smoke-test.sh` (the same script CI uses), packages them, installs and tests the Homebrew
+   formula from the macOS archive, writes one `SHA256SUMS` and publishes the GitHub release with the
+   changelog section as its notes. For a final release it then commits the formula to the tap.
 
 For a pre-release, skip step 1 and tag directly: `scripts/release.sh tag 0.3.0-rc.1`. Its notes are
 the current `Unreleased` section.
@@ -115,6 +116,36 @@ Each release publishes:
 - macOS archive: `jazzclub-<version>-macos-<arch>.tar.gz`
 - `SHA256SUMS`, covering all of the above
 
+## Homebrew tap
+
+[tedtedted/homebrew-tap](https://github.com/tedtedted/homebrew-tap) holds the formula, so macOS users
+install with `brew install tedtedted/tap/jazzclub` and update with `brew upgrade`. The formula installs
+the macOS archive of the release; nothing is compiled. Its source is the template
+[packaging/homebrew/jazzclub.rb.in](../packaging/homebrew/jazzclub.rb.in), filled in by
+`scripts/render-formula.sh`. Change the template here, never the file in the tap: every release
+overwrites it.
+
+The release workflow's macOS job installs the rendered formula from the archive it just built and runs
+`brew test` and `brew style`, so a broken formula stops the release before anything is published. After
+a final release, the `homebrew` job commits the formula to the tap as `jazzclub <version>`.
+Pre-releases leave the tap alone.
+
+The job pushes with a deploy key that can write to the tap and nothing else. To set it up, or to
+replace it:
+
+```sh
+ssh-keygen -t ed25519 -N "" -C "jazzclub release workflow" -f tap-key
+gh repo deploy-key add tap-key.pub -R tedtedted/homebrew-tap --allow-write --title "jazzclub release workflow"
+gh secret set HOMEBREW_TAP_DEPLOY_KEY -R tedtedted/jazzclub < tap-key
+rm tap-key tap-key.pub
+```
+
+Without the secret, the release is still published, but the run fails at the `homebrew` job to say the
+tap was not updated. Fix the secret and re-run that job.
+
+homebrew-core, Homebrew's main repository, is not the goal yet. It wants a project with an audience,
+and it builds every formula from source, which for a GraalVM native image is a large job of its own.
+
 The packages install jazzclub, the built-in decoder's native library `libconnector` (to
 `/usr/lib/jazzclub/`, or `libexec/jazzclub/` in the macOS archive), its documentation, bash completion,
 and the licence texts from `licenses/`. The native build stages `libconnector` beside `target/jazzclub`;
@@ -130,9 +161,8 @@ build to a newer runner silently drops Debian stable; the smoke test prints the 
 
 ## Still to come
 
-- A Homebrew tap (`brew install tedtedted/tap/jazzclub`), updated by the release workflow
 - `jazzclub-bin` on the AUR, from the PKGBUILD in tedtedted/jazzclub#3, also updated by the workflow
-- Plain Linux tarballs (also in #3), for Homebrew on Linux and other distributions
+- Plain Linux tarballs (also in #3), for other distributions and then Homebrew on Linux
 - A tag ruleset so only maintainers can push `v*` tags, immutable releases, and build provenance
   attestations
 - macOS signing and notarization, if direct downloads should open without the quarantine step
