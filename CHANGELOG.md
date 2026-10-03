@@ -8,16 +8,18 @@ Add a line under `Unreleased` in every pull request that changes something a use
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
 ### Added
 
-- A Homebrew tap: `brew install tedtedted/tap/jazzclub` on Apple Silicon Macs.
+- A built-in AAC decoder, now the default: Pandora's streams play without ffmpeg.
+  `decoder = ffmpeg` switches back, and jazzclub falls back to ffmpeg by itself, and says so, when
+  the built-in decoder cannot load.
 - Last.fm scrobbling, set up in the config file with `lastfm_user` and `lastfm_password_command`.
   Last.fm shows each song as it starts and scrobbles it by Last.fm's own rules when it ends.
 - Liking a song (`+`) also loves it on Last.fm; banning it (`-`) removes the love. Songs liked
   earlier, anywhere, are loved on Last.fm the next time they play.
-- A built-in AAC decoder, now the default: Pandora's streams play without ffmpeg.
-  `decoder = ffmpeg` switches back, and jazzclub falls back to ffmpeg by itself, and says so, when
-  the built-in decoder cannot load.
+- A Homebrew tap: `brew install tedtedted/tap/jazzclub` on Apple Silicon Macs.
 
 ### Changed
 
@@ -48,5 +50,6 @@ Tagged, but its release build failed and it was never published.
 - Packages for Debian 12 and Ubuntu 22.04 or newer (amd64, arm64), Arch Linux (x86_64, aarch64)
   and macOS (Apple Silicon), with bash completion.
 
-[Unreleased]: https://github.com/tedtedted/jazzclub/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tedtedted/jazzclub/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tedtedted/jazzclub/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tedtedted/jazzclub/releases/tag/v0.1.0
