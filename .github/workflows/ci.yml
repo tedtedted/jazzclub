@@ -41,6 +41,10 @@ jobs:
           distribution: graalvm-community
           cache: maven
 
+      # release notes come from CHANGELOG.md; a malformed one would only fail at release time
+      - name: Check the changelog
+        run: scripts/changelog.sh check
+
       # DecoderConformanceTest runs every check against both decoders; without ffmpeg its ffmpeg
       # half would be skipped, so here a missing ffmpeg fails the build instead
       - name: Install ffmpeg
