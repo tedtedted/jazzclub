@@ -73,9 +73,15 @@ jazzclub's release packages include the player and built-in decoder. No Java ins
 
 ## Install
 
-Download the package for your system from the
-[GitHub releases page](https://github.com/tedtedted/jazzclub/releases). Release files are named by
-platform and architecture:
+**macOS** on Apple Silicon, with [Homebrew](https://brew.sh):
+
+```sh
+brew install tedtedted/tap/jazzclub
+```
+
+`brew upgrade` then keeps it up to date. On Linux, or to install by hand, download the package for
+your system from the [GitHub releases page](https://github.com/tedtedted/jazzclub/releases). Release
+files are named by platform and architecture:
 
 | System | Download | Install |
 |---|---|---|
@@ -98,7 +104,7 @@ sudo apt install ./jazzclub_0.2.0_amd64.deb
 sudo pacman -U jazzclub-0.2.0-1-x86_64.pkg.tar.zst
 ```
 
-**macOS** on Apple Silicon
+**macOS** on Apple Silicon, without Homebrew
 
 ```sh
 tar -xzf jazzclub-0.2.0-macos-arm64.tar.gz
@@ -117,7 +123,7 @@ Every release comes with a `SHA256SUMS` file. Check your download with
 The Linux packages install tab completion for bash; the macOS archive has it under
 `share/bash-completion/`.
 
-A Homebrew tap and an AUR package are planned. To build from source instead, see
+An AUR package is planned. To build from source instead, see
 [Building](#building).
 
 ## Quick start

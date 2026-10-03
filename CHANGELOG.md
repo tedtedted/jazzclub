@@ -10,6 +10,7 @@ Add a line under `Unreleased` in every pull request that changes something a use
 
 ### Added
 
+- A Homebrew tap: `brew install tedtedted/tap/jazzclub` on Apple Silicon Macs.
 - Last.fm scrobbling, set up in the config file with `lastfm_user` and `lastfm_password_command`.
   Last.fm shows each song as it starts and scrobbles it by Last.fm's own rules when it ends.
 - Liking a song (`+`) also loves it on Last.fm; banning it (`-`) removes the love. Songs liked
