@@ -18,9 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Decodes Pandora's AAC-in-MP4 in-process: our {@link HttpSeekableStream} feeds LavaPlayer's MP4
- * parser, whose packets {@link AacPcmConsumer} decodes with fdk-aac. One thread per song does all
- * of it and writes into a pipe; {@link #pcm()} is the other end.
+ * Decodes Pandora's AAC-in-MP4 in-process: a {@link SongDownload} fetches the file in the
+ * background, our {@link HttpSeekableStream} feeds it to LavaPlayer's MP4 parser, and
+ * {@link AacPcmConsumer} decodes the packets with fdk-aac. One thread per song decodes and writes
+ * into a pipe; {@link #pcm()} is the other end.
  */
 public final class LavaplayerDecoder implements Decoder {
 
@@ -29,36 +30,51 @@ public final class LavaplayerDecoder implements Decoder {
 
     private final PipedInputStream pcm;
     private final Thread worker;
-    private volatile HttpSeekableStream stream;
+    private volatile SongDownload download;
     private volatile String failure;
     private volatile boolean closed;
 
-    private LavaplayerDecoder(HttpClient http, URI audioUrl, PcmFormat format) throws IOException {
+    private LavaplayerDecoder(HttpClient http, URI audioUrl, PcmFormat format, DownloadPolicy policy)
+            throws IOException {
         pcm = new PipedInputStream(PIPE_BYTES);
         PipedOutputStream out = new PipedOutputStream(pcm);
-        worker = Thread.ofPlatform().daemon().name("decoder").unstarted(() -> decode(http, audioUrl, format, out));
+        worker = Thread.ofPlatform().daemon().name("decoder")
+                .unstarted(() -> decode(http, audioUrl, format, policy, out));
     }
 
     /** @param http jazzclub's client for audio, carrying the stream proxy */
     public static Decoder.Factory factory(HttpClient http, PcmFormat format) {
+        return factory(http, format, DownloadPolicy.withTimeout(Duration.ofSeconds(30)));
+    }
+
+    /**
+     * @param http   jazzclub's client for audio, carrying the stream proxy
+     * @param policy the bounds of each song's download
+     */
+    public static Decoder.Factory factory(HttpClient http, PcmFormat format, DownloadPolicy policy) {
         return audioUrl -> {
             String scheme = audioUrl.getScheme();
             if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
                 throw new IllegalArgumentException("Invalid song url.");
             }
-            LavaplayerDecoder decoder = new LavaplayerDecoder(http, audioUrl, format);
+            LavaplayerDecoder decoder = new LavaplayerDecoder(http, audioUrl, format, policy);
             decoder.worker.start();
             return decoder;
         };
     }
 
-    private void decode(HttpClient http, URI audioUrl, PcmFormat format, PipedOutputStream out) {
+    private void decode(HttpClient http, URI audioUrl, PcmFormat format, DownloadPolicy policy,
+                        PipedOutputStream out) {
         AacPcmConsumer consumer = null;
+        SongDownload song = new SongDownload(http, audioUrl, policy);
+        // published before anything can block, so that close() reaches a download still connecting
+        download = song;
         try (out) {
-            stream = HttpSeekableStream.open(http, audioUrl);
             if (closed) {
                 return;
             }
+            song.start();
+            HttpSeekableStream stream = HttpSeekableStream.over(song);
             MpegFileLoader file = new MpegFileLoader(stream);
             file.parseHeaders();
             MpegTrackInfo track = file.getTrackList().stream().filter(AacPcmConsumer::canDecode).findFirst()
@@ -80,7 +96,7 @@ public final class LavaplayerDecoder implements Decoder {
             if (consumer != null) {
                 consumer.close();
             }
-            closeQuietly(stream);
+            song.close();
         }
     }
 
@@ -101,7 +117,10 @@ public final class LavaplayerDecoder implements Decoder {
     @Override
     public void close() {
         closed = true;
-        closeQuietly(stream);
+        SongDownload song = download;
+        if (song != null) {
+            song.close();
+        }
         worker.interrupt();
         closeQuietly(pcm);
     }
