@@ -297,7 +297,7 @@ act_songban = disabled
 | `password_command` | | A shell command that prints the password. Used when `password` is not set. |
 | `audio_quality` | `high` | `low`, `medium` or `high`. Free accounts get AAC at every level. |
 | `volume` | what you left it at | Initial volume correction in dB. Usually between -30 and +5. |
-| `buffer_seconds` | `5` | How much audio to keep decoded ahead of what you hear, to bridge network hiccups. |
+| `buffer_seconds` | `5` | How much audio to keep decoded ahead of what you hear, to bridge network hiccups. The built-in decoder also downloads each song in full as it starts, so it matters most with `decoder = ffmpeg`. |
 | `sample_rate` | `0` | Output sample rate in Hz. `0` keeps Pandora's 44100. Any other rate is resampled by ffmpeg. |
 | `audio_pipe` | | Write raw audio to this named pipe instead of playing it, see [Multi-room audio](#multi-room-audio). |
 | `decoder` | `lavaplayer` | `lavaplayer`: the built-in decoder, nothing to install. `ffmpeg`: an `ffmpeg` process; needs ffmpeg on your `PATH`. jazzclub also falls back to ffmpeg when the built-in decoder cannot load, and says so when the first song starts. |

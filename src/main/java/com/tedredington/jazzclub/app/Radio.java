@@ -87,6 +87,7 @@ public final class Radio {
             return;
         }
         playbackId = NOTHING_PLAYING;
+        logIfCutShort(result);
         events.emit(EventType.SONG_FINISH, state.selection(), EventResult.OK, result.played());
         switch (result.outcome()) {
             case COMPLETED -> consecutiveFailures = 0;
@@ -104,6 +105,17 @@ public final class Radio {
             return;
         }
         playNext();
+    }
+
+    /** A song that "completed" well before its length ended early without an error; worth tracing. */
+    private void logIfCutShort(PlaybackResult result) {
+        if (result.outcome() != PlaybackResult.Outcome.COMPLETED) {
+            return;
+        }
+        state.song().filter(song -> song.length().isPositive()
+                        && result.played().toMillis() < song.length().toMillis() * 8 / 10)
+                .ifPresent(song -> log.debug("Song ended early without an error: played {} of {}",
+                        result.played(), song.length()));
     }
 
     private void playNext() {

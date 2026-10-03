@@ -37,6 +37,7 @@ import com.tedredington.jazzclub.player.StreamingAudioPlayer;
 import com.tedredington.jazzclub.player.ffmpeg.FfmpegDecoder;
 import com.tedredington.jazzclub.player.javasound.JavaSoundAudioSink;
 import com.tedredington.jazzclub.player.javasound.JavaSoundNativeSupport;
+import com.tedredington.jazzclub.player.lavaplayer.DownloadPolicy;
 import com.tedredington.jazzclub.player.lavaplayer.LavaplayerDecoder;
 import com.tedredington.jazzclub.player.lavaplayer.LavaplayerNatives;
 import com.tedredington.jazzclub.player.pipe.PipeAudioSink;
@@ -111,7 +112,8 @@ class AppConfiguration {
                     // like ffmpeg and pianobar: only the proxy applies to audio; bind_to and ca_bundle
                     // are for the control connection (see README, Network)
                     return LavaplayerDecoder.factory(
-                            HttpClientFactory.create(pandora.timeout(), streamProxy, null, null), format);
+                            HttpClientFactory.create(pandora.timeout(), streamProxy, null, null), format,
+                            DownloadPolicy.withTimeout(pandora.timeout()));
                 },
                 () -> FfmpegDecoder.factory(properties.ffmpeg(),
                         streamProxy == null ? null : streamProxy.toEnvironmentValue(), format),

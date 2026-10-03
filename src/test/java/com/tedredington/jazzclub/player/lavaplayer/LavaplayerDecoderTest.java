@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
+import java.time.Duration;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,6 +72,35 @@ class LavaplayerDecoderTest {
     }
 
     @Test
+    void decodesTheSameAudioThroughADropOnEveryResponse() throws Exception {
+        DownloadPolicy smallSteps = new DownloadPolicy(Duration.ofSeconds(5), Duration.ofSeconds(5), 1024 * 1024,
+                50, 3, 4096, Duration.ofMillis(10), Duration.ofMillis(40));
+        Decoder.Factory decoders = LavaplayerDecoder.factory(HttpClient.newHttpClient(), FORMAT, smallSteps);
+        URI url = server.mount("he-noise.m4a", Behaviour.NORMAL.droppingEvery(8192));
+
+        byte[] clean = pcm(decoders, server.mount("he-noise.m4a"));
+        byte[] dropped = pcm(decoders, url);
+
+        assertThat(dropped).isEqualTo(clean);
+        assertThat(server.requestsFor(url)).hasSizeGreaterThan(4);
+    }
+
+    @Test
+    void closingEndsTheDownload() throws Exception {
+        Decoder decoder = decoders.open(server.mount("he-noise.m4a", Behaviour.NORMAL.throttled(4000)));
+        decoder.pcm().readNBytes(1000);
+
+        decoder.close();
+
+        long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+        while (Thread.getAllStackTraces().keySet().stream().anyMatch(t -> t.getName().equals("song-download"))
+                && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertThat(Thread.getAllStackTraces().keySet()).noneMatch(t -> t.getName().equals("song-download"));
+    }
+
+    @Test
     void playsAnIndexAtTheEndEvenWithoutRangeSupport() throws Exception {
         Result result = decode(decoders, server.mount("he-noise-moov-last.m4a", Behaviour.NORMAL.withoutRanges()));
 
@@ -95,6 +125,14 @@ class LavaplayerDecoderTest {
         Result result = decode(at48k, server.mount("lc-1k.m4a"));
 
         assertThat(result.failure()).contains("44100").contains("decoder = ffmpeg");
+    }
+
+    private static byte[] pcm(Decoder.Factory factory, URI url) throws Exception {
+        try (Decoder decoder = factory.open(url)) {
+            byte[] pcm = decoder.pcm().readAllBytes();
+            assertThat(decoder.failure()).isNull();
+            return pcm;
+        }
     }
 
     private static Result decode(Decoder.Factory factory, URI url) throws Exception {

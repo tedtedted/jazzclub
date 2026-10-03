@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,34 +21,99 @@ import com.sun.net.httpserver.HttpServer;
 
 /**
  * Serves {@code fixtures/audio} over HTTP on localhost, standing in for Pandora's CDN, with ways to
- * misbehave: throttling, dropping the connection, refusing range requests, dying after a drop.
+ * misbehave: throttling, dropping the connection once or on every response, refusing range
+ * requests, failing after a drop, stalling, answering a resume with the wrong range, and changing
+ * the file after a drop.
  */
 public final class AudioFixtureServer implements AutoCloseable {
 
-    /** How one URL misbehaves. */
-    public record Behaviour(int bytesPerSecond, int dropAfterBytes, boolean deadAfterDrop, boolean ranges) {
+    /** How long a stall lasts; far beyond any timeout the tests set. */
+    private static final long STALL_MILLIS = 5_000;
 
-        public static final Behaviour NORMAL = new Behaviour(0, -1, false, true);
+    /**
+     * How one URL misbehaves.
+     *
+     * @param failStatus       what requests after the first drop are answered with, {@code failTimes} times
+     * @param stallBodyAfter   the first response stops sending after this many bytes, without closing; -1 for never
+     * @param misplacedRanges  a range request is answered with a 206 that starts at byte 0
+     * @param changesAfterDrop after the first drop the file has different content and ETag
+     * @param unknownLength    responses are chunked, without a Content-Length
+     */
+    public record Behaviour(int bytesPerSecond, int dropAfterBytes, boolean dropEveryResponse, boolean ranges,
+                            int failStatus, int failTimes, boolean stallHeadersOnce, int stallBodyAfter,
+                            boolean misplacedRanges, boolean changesAfterDrop, boolean etag, boolean unknownLength) {
+
+        public static final Behaviour NORMAL =
+                new Behaviour(0, -1, false, true, 0, 0, false, -1, false, false, false, false);
 
         public Behaviour throttled(int bytesPerSecond) {
-            return new Behaviour(bytesPerSecond, dropAfterBytes, deadAfterDrop, ranges);
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, changesAfterDrop, etag, unknownLength);
         }
 
         /** Drops the first response after this many bytes; later requests are served normally. */
         public Behaviour droppingOnceAfter(int bytes) {
-            return new Behaviour(bytesPerSecond, bytes, false, ranges);
+            return new Behaviour(bytesPerSecond, bytes, false, ranges, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, changesAfterDrop, etag, unknownLength);
+        }
+
+        /** Drops every response after this many bytes. */
+        public Behaviour droppingEvery(int bytes) {
+            return new Behaviour(bytesPerSecond, bytes, true, ranges, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, changesAfterDrop, etag, unknownLength);
         }
 
         /** Drops the first response after this many bytes and answers 503 from then on. */
         public Behaviour dyingAfter(int bytes) {
-            return new Behaviour(bytesPerSecond, bytes, true, ranges);
+            return droppingOnceAfter(bytes).failingAfterDrop(503, Integer.MAX_VALUE);
+        }
+
+        /** Answers the next {@code times} requests after the first drop with {@code status}. */
+        public Behaviour failingAfterDrop(int status, int times) {
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, status, times,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, changesAfterDrop, etag, unknownLength);
         }
 
         public Behaviour withoutRanges() {
-            return new Behaviour(bytesPerSecond, dropAfterBytes, deadAfterDrop, false);
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, false, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, changesAfterDrop, etag, unknownLength);
+        }
+
+        /** Sends no response headers to the first request for a long while. */
+        public Behaviour stallingHeadersOnce() {
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, failStatus, failTimes,
+                    true, stallBodyAfter, misplacedRanges, changesAfterDrop, etag, unknownLength);
+        }
+
+        /** The first response goes silent after this many bytes, keeping the connection open. */
+        public Behaviour stallingBodyOnceAfter(int bytes) {
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, failStatus, failTimes,
+                    stallHeadersOnce, bytes, misplacedRanges, changesAfterDrop, etag, unknownLength);
+        }
+
+        public Behaviour misplacingRanges() {
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, true, changesAfterDrop, etag, unknownLength);
+        }
+
+        public Behaviour changingAfterDrop() {
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, true, etag, unknownLength);
+        }
+
+        /** Sends a strong ETag and honours {@code If-Range}. */
+        public Behaviour withEtag() {
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, changesAfterDrop, true, unknownLength);
+        }
+
+        public Behaviour withoutLength() {
+            return new Behaviour(bytesPerSecond, dropAfterBytes, dropEveryResponse, ranges, failStatus, failTimes,
+                    stallHeadersOnce, stallBodyAfter, misplacedRanges, changesAfterDrop, etag, true);
         }
     }
 
+    /** @param status 0 when the server hung up without answering */
     public record Request(String path, String range, int status) {
     }
 
@@ -60,12 +126,21 @@ public final class AudioFixtureServer implements AutoCloseable {
 
     private static final class Mount {
         final byte[] body;
+        final byte[] changedBody;
         final Behaviour behaviour;
+        final AtomicInteger failuresLeft;
         volatile boolean dropped;
+        volatile boolean headersStalled;
+        volatile boolean bodyStalled;
 
         Mount(byte[] body, Behaviour behaviour) {
             this.body = body;
             this.behaviour = behaviour;
+            this.failuresLeft = new AtomicInteger(behaviour.failTimes());
+            this.changedBody = body.clone();
+            for (int i = 0; i < changedBody.length; i++) {
+                changedBody[i] ^= (byte) 0xff;
+            }
         }
     }
 
@@ -87,13 +162,18 @@ public final class AudioFixtureServer implements AutoCloseable {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        String path = "/" + mounts.size() + "/" + fixture;
-        mounts.put(path, new Mount(body, behaviour));
-        return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + path);
+        return mount(fixture, body, behaviour);
     }
 
     public URI mount(String fixture) {
         return mount(fixture, Behaviour.NORMAL);
+    }
+
+    /** Serves {@code body} under a fresh path ending in {@code name}. */
+    public URI mount(String name, byte[] body, Behaviour behaviour) {
+        String path = "/" + mounts.size() + "/" + name;
+        mounts.put(path, new Mount(body, behaviour));
+        return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + path);
     }
 
     /** A URL that answers 302 with {@code target} as its Location, e.g. another mount or itself. */
@@ -108,8 +188,19 @@ public final class AudioFixtureServer implements AutoCloseable {
         return requests.stream().filter(r -> r.path().equals(uri.getPath())).toList();
     }
 
+    /**
+     * Thrown out of the handler past {@link HttpExchange#close()}, so that the server closes the
+     * connection as it is: closing the exchange would end a chunked response cleanly.
+     */
+    private static final class DropConnection extends RuntimeException {
+        DropConnection() {
+            super("dropping connection on purpose", null, false, false);
+        }
+    }
+
     private void handle(HttpExchange exchange) throws IOException {
-        try (exchange) {
+        boolean dropping = false;
+        try {
             String path = exchange.getRequestURI().getPath();
             String rangeHeader = exchange.getRequestHeaders().getFirst("Range");
             Mount mount = mounts.get(path);
@@ -124,31 +215,49 @@ public final class AudioFixtureServer implements AutoCloseable {
                 return;
             }
             Behaviour behaviour = mount.behaviour;
-            if (mount.dropped && behaviour.deadAfterDrop()) {
-                respond(exchange, path, rangeHeader, 503);
+            if (mount.dropped && mount.failuresLeft.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
+                respond(exchange, path, rangeHeader, behaviour.failStatus());
+                return;
+            }
+            if (behaviour.stallHeadersOnce() && !mount.headersStalled) {
+                mount.headersStalled = true;
+                requests.add(new Request(path, rangeHeader, 0));
+                Thread.sleep(STALL_MILLIS);
                 return;
             }
 
+            boolean changed = behaviour.changesAfterDrop() && mount.dropped;
+            byte[] content = changed ? mount.changedBody : mount.body;
+            String etag = changed ? "\"v2\"" : "\"v1\"";
+            String ifRange = exchange.getRequestHeaders().getFirst("If-Range");
+            boolean honourRange = behaviour.ranges() && (ifRange == null || ifRange.equals(etag));
+
             int start = 0;
-            int end = mount.body.length - 1;
+            int end = content.length - 1;
             int status = 200;
             Matcher range = rangeHeader == null ? null : RANGE.matcher(rangeHeader);
-            if (behaviour.ranges() && range != null && range.matches()) {
+            if (honourRange && range != null && range.matches()) {
                 start = Integer.parseInt(range.group(1));
                 if (!range.group(2).isEmpty()) {
                     end = Math.min(end, Integer.parseInt(range.group(2)));
                 }
                 if (start > end) {
-                    exchange.getResponseHeaders().set("Content-Range", "bytes */" + mount.body.length);
+                    exchange.getResponseHeaders().set("Content-Range", "bytes */" + content.length);
                     respond(exchange, path, rangeHeader, 416);
                     return;
                 }
+                if (behaviour.misplacedRanges()) {
+                    start = 0;
+                }
                 status = 206;
                 exchange.getResponseHeaders().set("Content-Range",
-                        "bytes " + start + "-" + end + "/" + mount.body.length);
+                        "bytes " + start + "-" + end + "/" + content.length);
             }
             if (behaviour.ranges()) {
                 exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
+            }
+            if (behaviour.etag()) {
+                exchange.getResponseHeaders().set("ETag", etag);
             }
             exchange.getResponseHeaders().set("Content-Type", path.endsWith(".aac") ? "audio/aac" : "audio/mp4");
             // With keep-alive, ffmpeg fails to open a whole ADTS file that fits in its probe buffer
@@ -157,28 +266,45 @@ public final class AudioFixtureServer implements AutoCloseable {
             exchange.getResponseHeaders().set("Connection", "close");
             requests.add(new Request(path, rangeHeader, status));
             int length = end - start + 1;
-            exchange.sendResponseHeaders(status, length);
+            // 0 means chunked to this server, -1 means no body
+            exchange.sendResponseHeaders(status, behaviour.unknownLength() ? (length == 0 ? -1 : 0) : length);
 
-            boolean dropNow = behaviour.dropAfterBytes() >= 0 && !mount.dropped;
-            int limit = dropNow ? Math.min(length, behaviour.dropAfterBytes()) : length;
+            boolean dropNow = behaviour.dropAfterBytes() >= 0 && (behaviour.dropEveryResponse() || !mount.dropped);
+            boolean stallNow = behaviour.stallBodyAfter() >= 0 && !mount.bodyStalled;
+            int limit = length;
+            if (dropNow) {
+                limit = Math.min(limit, behaviour.dropAfterBytes());
+            }
+            if (stallNow) {
+                limit = Math.min(limit, behaviour.stallBodyAfter());
+            }
             OutputStream out = exchange.getResponseBody();
             int chunk = behaviour.bytesPerSecond() > 0 ? Math.max(1, behaviour.bytesPerSecond() / 20) : 16 * 1024;
             for (int sent = 0; sent < limit; sent += chunk) {
-                out.write(mount.body, start + sent, Math.min(chunk, limit - sent));
+                out.write(content, start + sent, Math.min(chunk, limit - sent));
                 out.flush();
                 if (behaviour.bytesPerSecond() > 0) {
                     Thread.sleep(50);
                 }
             }
-            if (dropNow) {
+            if (stallNow) {
+                mount.bodyStalled = true;
+                Thread.sleep(STALL_MILLIS);
+                throw new IOException("giving up on a stalled response");
+            }
+            if (dropNow && limit < length) {
                 mount.dropped = true;
-                // Content-Length promised more, so closing now is a connection drop, not a clean end
-                throw new IOException("dropping connection on purpose");
+                dropping = true;
+                throw new DropConnection();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException e) {
-            // client went away, or a deliberate drop: either way the exchange is finished
+            // client went away: the exchange is finished
+        } finally {
+            if (!dropping) {
+                exchange.close();
+            }
         }
     }
 
