@@ -105,17 +105,17 @@ jobs:
         include:
           # Ubuntu 22.04 on purpose: a binary only starts on a glibc at least as new as the one it
           # was linked against. 24.04 has 2.39, Debian 12 has 2.36; 22.04's 2.35 runs on both.
-          - package: deb-amd64
+          - package: linux-x64
             runner: ubuntu-22.04
             os: linux
             deb_arch: amd64
             arch_arch: x86_64
-          - package: deb-arm64
+          - package: linux-arm64
             runner: ubuntu-22.04-arm
             os: linux
             deb_arch: arm64
             arch_arch: aarch64
-          - package: macos
+          - package: macos-arm64
             runner: macos-latest
             os: macos
     steps:
@@ -219,7 +219,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: packages-deb-*
+          pattern: packages-linux-*
           merge-multiple: true
 
       - name: Render PKGBUILD
