@@ -79,15 +79,30 @@ jazzclub's release packages include the player and built-in decoder. No Java ins
 brew install tedtedted/tap/jazzclub
 ```
 
-`brew upgrade` then keeps it up to date. On Linux, or to install by hand, download the package for
-your system from the [GitHub releases page](https://github.com/tedtedted/jazzclub/releases). Release
-files are named by platform and architecture:
+`brew upgrade` then keeps it up to date.
+
+**Arch Linux** (`x86_64` and `aarch64`), from the AUR as
+[`jazzclub-bin`](https://aur.archlinux.org/packages/jazzclub-bin), with an AUR helper such as `yay`
+or by hand:
+
+```sh
+yay -S jazzclub-bin
+```
+
+```sh
+git clone https://aur.archlinux.org/jazzclub-bin.git && cd jazzclub-bin && makepkg -si
+```
+
+On other systems, or to install by hand, download the package for your system from the
+[GitHub releases page](https://github.com/tedtedted/jazzclub/releases). Release files are named by
+platform and architecture:
 
 | System | Download | Install |
 |---|---|---|
 | Debian 12 / Ubuntu 22.04 or newer | `jazzclub_<version>_amd64.deb` or `jazzclub_<version>_arm64.deb` | `sudo apt install ./jazzclub_<version>_<arch>.deb` |
 | Arch Linux | `jazzclub-<version>-1-x86_64.pkg.tar.zst` or `jazzclub-<version>-1-aarch64.pkg.tar.zst` | `sudo pacman -U jazzclub-<version>-1-<arch>.pkg.tar.zst` |
 | macOS Apple Silicon | `jazzclub-<version>-macos-arm64.tar.gz` | unpack it and install `bin/jazzclub` plus `libexec/jazzclub/libconnector.dylib` |
+| Any other Linux with glibc 2.35 or newer | `jazzclub-<version>-linux-x86_64.tar.gz` or `jazzclub-<version>-linux-aarch64.tar.gz` | unpack it and install `bin/jazzclub` plus `libexec/jazzclub/libconnector.so` |
 
 On Linux, the packages declare the runtime libraries they need through your package manager. ffmpeg
 is only suggested or optional because the default decoder does not need it.
@@ -98,7 +113,7 @@ is only suggested or optional because the default decoder does not need it.
 sudo apt install ./jazzclub_0.2.0_amd64.deb
 ```
 
-**Arch Linux** (`x86_64` and `aarch64`)
+**Arch Linux** without the AUR (`x86_64` and `aarch64`)
 
 ```sh
 sudo pacman -U jazzclub-0.2.0-1-x86_64.pkg.tar.zst
@@ -115,6 +130,9 @@ sudo install -m 644 jazzclub-0.2.0-macos-arm64/libexec/jazzclub/libconnector.dyl
 xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclub/libconnector.dylib
 ```
 
+**Other Linux** from the tarball works the same way as the macOS archive, with `libconnector.so`.
+You need the ALSA library and libstdc++ installed.
+
 The decoder library goes in `libexec/jazzclub` beside the `bin` directory you install into; jazzclub
 also finds it in the binary's own directory.
 
@@ -123,8 +141,7 @@ Every release comes with a `SHA256SUMS` file. Check your download with
 The Linux packages install tab completion for bash; the macOS archive has it under
 `share/bash-completion/`.
 
-An AUR package is planned. To build from source instead, see
-[Building](#building).
+To build from source instead, see [Building](#building).
 
 ## Quick start
 

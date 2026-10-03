@@ -1,0 +1,47 @@
+# Maintainer: Ted Redington <ted@tedredington.com>
+#
+# Generated from packaging/arch/PKGBUILD.in in https://github.com/tedtedted/jazzclub by
+# scripts/render-pkgbuild.sh, and pushed here by its release workflow. Edit the template there; every
+# release overwrites this file.
+#
+# Installs the native binary published with each GitHub release; nothing is compiled here.
+
+pkgname=jazzclub-bin
+# the release version; pkgver may not contain a hyphen, which pre-releases such as 0.2.0-rc.1 have
+_ver=@VERSION@
+pkgver=@PKGVER@
+pkgrel=1
+pkgdesc="Console client for Pandora internet radio, a port of pianobar"
+arch=('x86_64' 'aarch64')
+url="https://github.com/tedtedted/jazzclub"
+# jazzclub is MIT; its decoder library bundles LavaPlayer (Apache 2.0), mpg123 (LGPL 2.1), Opus, Ogg,
+# Vorbis and libsamplerate (BSD) and the Fraunhofer FDK AAC codec
+license=('MIT' 'Apache-2.0' 'LGPL-2.1-only' 'BSD-3-Clause' 'BSD-2-Clause' 'LicenseRef-FDK-AAC')
+# namcap says alsa-lib "may not be needed". It is: Java Sound opens ALSA at run time, which namcap
+# cannot see. gcc-libs is libconnector's libstdc++.
+depends=('alsa-lib' 'gcc-libs' 'glibc' 'zlib')
+optdepends=('ffmpeg: decoder = ffmpeg, resampling to another sample_rate, fallback decoder'
+            'pipewire-alsa: sound through PipeWire'
+            'pulseaudio-alsa: sound through PulseAudio'
+            'bash-completion: tab completion in bash')
+provides=('jazzclub')
+conflicts=('jazzclub')
+# A GraalVM native image carries its heap snapshot inside the executable. Leave it exactly as built.
+options=('!strip' '!debug')
+# The architecture is spelled out rather than written as $CARCH, which namcap suggests: .SRCINFO is
+# generated on one machine and would then name that machine's tarball for both architectures.
+source_x86_64=("jazzclub-${_ver}-linux-x86_64.tar.gz::${url}/releases/download/v${_ver}/jazzclub-${_ver}-linux-x86_64.tar.gz")
+source_aarch64=("jazzclub-${_ver}-linux-aarch64.tar.gz::${url}/releases/download/v${_ver}/jazzclub-${_ver}-linux-aarch64.tar.gz")
+sha256sums_x86_64=('@SHA256_X86_64@')
+sha256sums_aarch64=('@SHA256_AARCH64@')
+
+package() {
+  cd "jazzclub-${_ver}-linux-${CARCH}"
+  install -Dm755 bin/jazzclub "${pkgdir}/usr/bin/jazzclub"
+  # jazzclub looks for its decoder library in lib/jazzclub beside the bin it runs from
+  install -Dm644 libexec/jazzclub/libconnector.so "${pkgdir}/usr/lib/jazzclub/libconnector.so"
+  install -Dm644 share/bash-completion/completions/jazzclub \
+    "${pkgdir}/usr/share/bash-completion/completions/jazzclub"
+  install -Dm644 share/doc/jazzclub/README.md "${pkgdir}/usr/share/doc/jazzclub/README.md"
+  install -Dm644 -t "${pkgdir}/usr/share/licenses/${pkgname}" share/licenses/jazzclub/*
+}
