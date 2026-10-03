@@ -76,8 +76,9 @@ on.
 4. **The release workflow** refuses a tag whose commit is not on `main`, checks the changelog, runs
    the tests, builds native binaries with the tag's version baked in, smoke tests them with
    `scripts/smoke-test.sh` (the same script CI uses), packages them, installs and tests the Homebrew
-   formula from the macOS archive, writes one `SHA256SUMS` and publishes the GitHub release with the
-   changelog section as its notes. For a final release it then commits the formula to the tap.
+   formula from the macOS archive, builds and installs the PKGBUILD on Arch Linux, writes one
+   `SHA256SUMS` and publishes the GitHub release with the changelog section as its notes. For a final
+   release it then updates the Homebrew tap and the AUR.
 
 For a pre-release, skip step 1 and tag directly: `scripts/release.sh tag 0.3.0-rc.1`. Its notes are
 the current `Unreleased` section.
@@ -113,8 +114,22 @@ Each release publishes:
 
 - Debian packages: `jazzclub_<version>_amd64.deb`, `jazzclub_<version>_arm64.deb`
 - Arch packages: `jazzclub-<version>-1-x86_64.pkg.tar.zst`, `jazzclub-<version>-1-aarch64.pkg.tar.zst`
+- Linux tarballs: `jazzclub-<version>-linux-x86_64.tar.gz`, `jazzclub-<version>-linux-aarch64.tar.gz`
 - macOS archive: `jazzclub-<version>-macos-<arch>.tar.gz`
 - `SHA256SUMS`, covering all of the above
+
+The packages install jazzclub, the built-in decoder's native library `libconnector` (to
+`/usr/lib/jazzclub/`, or `libexec/jazzclub/` in the macOS archive), its documentation, bash completion,
+and the licence texts from `licenses/`. The native build stages `libconnector` beside `target/jazzclub`;
+a packaging script stops if it is missing. Runtime dependencies are left to the operating system's
+package manager and declared in the packages: on Linux the ALSA library (`libasound2` on Debian,
+`alsa-lib` on Arch), which the Java Sound code inside the binary loads, and libstdc++ (`libstdc++6`,
+`gcc-libs`), which `libconnector` needs. `ffmpeg` is only suggested (Debian) or optional (Arch): the
+built-in decoder does not need it.
+
+The Linux binaries are built on Ubuntu 22.04 on purpose. A binary only starts on a glibc at least as
+new as the one it was linked against, and 22.04's glibc 2.35 is older than Debian 12's 2.36. Moving the
+build to a newer runner silently drops Debian stable; the smoke test prints the glibc each binary needs.
 
 ## Homebrew tap
 
@@ -146,23 +161,49 @@ tap was not updated. Fix the secret and re-run that job.
 homebrew-core, Homebrew's main repository, is not the goal yet. It wants a project with an audience,
 and it builds every formula from source, which for a GraalVM native image is a large job of its own.
 
-The packages install jazzclub, the built-in decoder's native library `libconnector` (to
-`/usr/lib/jazzclub/`, or `libexec/jazzclub/` in the macOS archive), its documentation, bash completion,
-and the licence texts from `licenses/`. The native build stages `libconnector` beside `target/jazzclub`;
-a packaging script stops if it is missing. Runtime dependencies are left to the operating system's
-package manager and declared in the packages: on Linux the ALSA library (`libasound2` on Debian,
-`alsa-lib` on Arch), which the Java Sound code inside the binary loads, and libstdc++ (`libstdc++6`,
-`gcc-libs`), which `libconnector` needs. `ffmpeg` is only suggested (Debian) or optional (Arch): the
-built-in decoder does not need it.
+## AUR
 
-The Linux binaries are built on Ubuntu 22.04 on purpose. A binary only starts on a glibc at least as
-new as the one it was linked against, and 22.04's glibc 2.35 is older than Debian 12's 2.36. Moving the
-build to a newer runner silently drops Debian stable; the smoke test prints the glibc each binary needs.
+[`jazzclub-bin`](https://aur.archlinux.org/packages/jazzclub-bin) follows the AUR's `-bin` convention:
+it installs the Linux tarball of the release and compiles nothing, `provides` and `conflicts` name
+`jazzclub`, and `pkgver` replaces the hyphen of a pre-release (`0.2.0-rc.1` becomes `0.2.0_rc.1`)
+because makepkg does not allow one. Its source is the template
+[packaging/arch/PKGBUILD.in](../packaging/arch/PKGBUILD.in), filled in with the version and the
+tarballs' checksums by `scripts/render-pkgbuild.sh`. As with Homebrew, change the template here, never
+the AUR copy.
+
+The release workflow's `pkgbuild` job proves the result in an `archlinux` container before anything is
+published: `makepkg` against the tarball just built, `namcap` with no errors allowed, `pacman -U`, and
+the same smoke test the binaries get. It also generates the `.SRCINFO` the AUR requires. After a final
+release, the `aur` job commits both files to the AUR as `jazzclub <version>`; the first push creates
+the package. Pre-releases leave the AUR alone.
+
+The job pushes with an SSH key registered to the AUR account that maintains the package. To set it
+up, or to replace it:
+
+1. Create an account on the [AUR](https://aur.archlinux.org/register) if you have none.
+2. Make a key for the workflow alone, and paste the `.pub` half into "SSH Public Key" in the account
+   settings:
+
+   ```sh
+   ssh-keygen -t ed25519 -N "" -C "jazzclub release workflow" -f aur-key
+   ```
+
+3. Give the private half to the workflow, then delete both files:
+
+   ```sh
+   gh secret set AUR_SSH_PRIVATE_KEY -R tedtedted/jazzclub < aur-key
+   rm aur-key aur-key.pub
+   ```
+
+Without the secret, the release is still published, but the run fails at the `aur` job to say the AUR
+was not updated. Fix the secret and re-run that job.
+
+The `.pkg.tar.zst` files on the release page are built without makepkg and are for `pacman -U`. They
+are named `jazzclub`, so they and `jazzclub-bin` replace each other.
 
 ## Still to come
 
-- `jazzclub-bin` on the AUR, from the PKGBUILD in tedtedted/jazzclub#3, also updated by the workflow
-- Plain Linux tarballs (also in #3), for other distributions and then Homebrew on Linux
+- Homebrew on Linux, from the Linux tarballs
 - A tag ruleset so only maintainers can push `v*` tags, immutable releases, and build provenance
   attestations
 - macOS signing and notarization, if direct downloads should open without the quarantine step
