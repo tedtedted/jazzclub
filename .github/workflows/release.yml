@@ -32,7 +32,6 @@ jobs:
     steps:
       # docs/release.md: releases ship from main. A tag is cheap to put on the wrong commit.
       - uses: actions/checkout@v4
-        if: github.event_name != 'workflow_dispatch'
         with:
           fetch-depth: 0
 
@@ -64,6 +63,12 @@ jobs:
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+      # the release notes come from CHANGELOG.md; a missing section fails here, not after the builds
+      - name: The changelog has notes for this version
+        run: |
+          scripts/changelog.sh check
+          scripts/changelog.sh notes "${{ steps.version.outputs.version }}" > /dev/null
 
   test:
     name: Tests and coverage
@@ -159,12 +164,6 @@ jobs:
         shell: bash
         run: scripts/package-macos.sh "${{ needs.version.outputs.version }}" "$(uname -m)" target/jazzclub dist
 
-      - name: Checksums
-        shell: bash
-        run: |
-          cd dist
-          shasum -a 256 * > SHA256SUMS-${{ matrix.package }}
-
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -173,21 +172,61 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # A rehearsal (workflow_dispatch) runs this too, so the notes and checksums are proven before a
+  # tag; only the last step, which creates the release, is skipped.
   publish:
     name: Publish GitHub release
     needs: [version, package]
     runs-on: ubuntu-24.04
-    if: github.event_name != 'workflow_dispatch'
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: packages-*
           merge-multiple: true
 
+      # one file for every package, so `sha256sum -c SHA256SUMS --ignore-missing` checks any download
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Release notes
+        shell: bash
+        run: |
+          version="${{ needs.version.outputs.version }}"
+          {
+            if [[ "${{ needs.version.outputs.prerelease }}" == "true" ]]; then
+              echo "A pre-release of what comes next; expect rough edges."
+              echo
+            fi
+            scripts/changelog.sh notes "$version"
+            echo
+            echo "---"
+            echo
+            echo "Install instructions are in the [README](https://github.com/${GITHUB_REPOSITORY}/blob/v${version}/README.md#install)."
+            echo "Check a download with \`sha256sum -c SHA256SUMS --ignore-missing\` (on macOS \`shasum -a 256 -c SHA256SUMS --ignore-missing\`)."
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Upload release contents
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ needs.version.outputs.version }}
+          path: |
+            dist/*
+            release-notes.md
+          retention-days: 14
+
+      # --repo: v0.1.0 never published because gh had no clone to read the repository from
       - name: Publish release
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -198,6 +237,8 @@ jobs:
           fi
 
           gh release create "${GITHUB_REF_NAME}" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
             --title "jazzclub ${{ needs.version.outputs.version }}" \
-            --generate-notes \
+            --notes-file release-notes.md \
             "${prerelease_flag[@]}"

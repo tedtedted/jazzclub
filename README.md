@@ -11,7 +11,7 @@ jazzclub is a Java/GraalVM port of the wonderful
 same config format, and ships as native packages that do not need a Java runtime.
 
 ```
-Welcome to jazzclub (0.1.0)! Press ? for a list of commands.
+Welcome to jazzclub (0.2.0)! Press ? for a list of commands.
 (i) Login... Ok.
 (i) Get stations... Ok.
          0) q   Bill Evans Radio
@@ -89,22 +89,22 @@ is only suggested or optional because the default decoder does not need it.
 **Debian, Ubuntu** (Debian 12 and Ubuntu 22.04 or newer; `amd64` and `arm64`)
 
 ```sh
-sudo apt install ./jazzclub_0.1.0_amd64.deb
+sudo apt install ./jazzclub_0.2.0_amd64.deb
 ```
 
 **Arch Linux** (`x86_64` and `aarch64`)
 
 ```sh
-sudo pacman -U jazzclub-0.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U jazzclub-0.2.0-1-x86_64.pkg.tar.zst
 ```
 
 **macOS** on Apple Silicon
 
 ```sh
-tar -xzf jazzclub-0.1.0-macos-arm64.tar.gz
-sudo install -m 755 jazzclub-0.1.0-macos-arm64/bin/jazzclub /usr/local/bin/
+tar -xzf jazzclub-0.2.0-macos-arm64.tar.gz
+sudo install -m 755 jazzclub-0.2.0-macos-arm64/bin/jazzclub /usr/local/bin/
 sudo install -d /usr/local/libexec/jazzclub
-sudo install -m 644 jazzclub-0.1.0-macos-arm64/libexec/jazzclub/libconnector.dylib /usr/local/libexec/jazzclub/
+sudo install -m 644 jazzclub-0.2.0-macos-arm64/libexec/jazzclub/libconnector.dylib /usr/local/libexec/jazzclub/
 # macOS quarantines downloaded files
 xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclub/libconnector.dylib
 ```
@@ -112,9 +112,10 @@ xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclu
 The decoder library goes in `libexec/jazzclub` beside the `bin` directory you install into; jazzclub
 also finds it in the binary's own directory.
 
-Every release comes with `SHA256SUMS-*` files; check your download with `sha256sum -c` (on macOS
-`shasum -a 256 -c`). The Linux packages install tab completion for bash; the macOS archive has it
-under `share/bash-completion/`.
+Every release comes with a `SHA256SUMS` file. Check your download with
+`sha256sum -c SHA256SUMS --ignore-missing`, or on macOS `shasum -a 256 -c SHA256SUMS --ignore-missing`.
+The Linux packages install tab completion for bash; the macOS archive has it under
+`share/bash-completion/`.
 
 A Homebrew tap and an AUR package are planned. To build from source instead, see
 [Building](#building).
@@ -607,17 +608,18 @@ packages them for Debian, Arch Linux and macOS, writes checksums and publishes a
 
 ## Releasing
 
-jazzclub releases use SemVer tags. Normal code changes land through branches or worktrees into
-`main`; packages are only published from immutable tags:
+jazzclub follows [Semantic Versioning](https://semver.org/) and ships from tags on `main`, when there
+is something worth shipping rather than after every pull request. What changed in each release is in
+[CHANGELOG.md](CHANGELOG.md); a pull request that changes something a user would notice adds a line
+under `Unreleased` there. Cutting a release takes two commands:
 
 ```sh
-git tag -a v0.1.0 -m "jazzclub 0.1.0"
-git push origin v0.1.0
+scripts/release.sh prepare 0.2.0   # a pull request that dates the changelog
+scripts/release.sh tag 0.2.0       # once it is merged; the release workflow does the rest
 ```
 
-Use `MAJOR` for incompatible config, CLI, packaging or behavior changes, `MINOR` for compatible
-features, and `PATCH` for compatible fixes. See [docs/release.md](docs/release.md) for the branch,
-versioning and CI/CD policy.
+[docs/release.md](docs/release.md) has the schedule, what each kind of version means, and the
+details.
 
 To try the packaging on your own machine:
 
