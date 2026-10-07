@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Reads ahead on a thread of its own, up to a fixed amount, so that a stall of the source (the
@@ -49,9 +50,14 @@ public final class PrefetchingInputStream extends InputStream {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        // offer, not put: if the consumer has gone away nobody will ever make room
-        while (!closed && !chunks.offer(END)) {
-            Thread.onSpinWait();
+        // A paused consumer may leave the queue full at EOF. Wait without burning CPU;
+        // close() interrupts this wait and supplies its own end marker.
+        try {
+            while (!closed && !chunks.offer(END, 100, TimeUnit.MILLISECONDS)) {
+                // Check close between bounded waits.
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

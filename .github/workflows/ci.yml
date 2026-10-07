@@ -1,14 +1,12 @@
 name: CI
 
 # Feature branches are tested through their pull request only, so a push to one no longer runs
-# everything twice. Changes to documentation alone run nothing; path filters never apply to tags.
+# everything twice. Run documentation PRs too: README and changelog checks protect release inputs.
 on:
   push:
     branches: [main]
     tags: ['v*']
-    paths-ignore: ['**/*.md', 'docs/**']
   pull_request:
-    paths-ignore: ['**/*.md', 'docs/**']
   workflow_dispatch:
     inputs:
       macos:
@@ -33,9 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: graalvm/setup-graalvm@v1
+      - uses: graalvm/setup-graalvm@27b360dbb857524eaf0b4c4cef364d38e5b4f173 # v1
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: graalvm-community
@@ -58,7 +56,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: target/site/jacoco/
@@ -97,10 +95,10 @@ jobs:
             echo "build=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         if: steps.gate.outputs.build == 'true'
 
-      - uses: graalvm/setup-graalvm@v1
+      - uses: graalvm/setup-graalvm@27b360dbb857524eaf0b4c4cef364d38e5b4f173 # v1
         if: steps.gate.outputs.build == 'true'
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -130,9 +128,13 @@ jobs:
         if: steps.gate.outputs.build == 'true'
         run: scripts/smoke-test.sh target/jazzclub
 
+      - name: Test native audio
+        if: steps.gate.outputs.build == 'true'
+        run: python3 scripts/smoke-test-audio.py target/jazzclub
+
       - name: Upload binary
         if: steps.gate.outputs.build == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: jazzclub-${{ matrix.name }}
           path: target/jazzclub

@@ -11,7 +11,7 @@ jazzclub is a Java/GraalVM port of the wonderful
 same config format, and ships as native packages that do not need a Java runtime.
 
 ```
-Welcome to jazzclub (0.2.0)! Press ? for a list of commands.
+Welcome to jazzclub (0.2.1)! Press ? for a list of commands.
 (i) Login... Ok.
 (i) Get stations... Ok.
          0) q   Bill Evans Radio
@@ -95,22 +95,22 @@ is only suggested or optional because the default decoder does not need it.
 **Debian, Ubuntu** (Debian 12 and Ubuntu 22.04 or newer; `amd64` and `arm64`)
 
 ```sh
-sudo apt install ./jazzclub_0.2.0_amd64.deb
+sudo apt install ./jazzclub_0.2.1_amd64.deb
 ```
 
 **Arch Linux** (`x86_64` and `aarch64`)
 
 ```sh
-sudo pacman -U jazzclub-0.2.0-1-x86_64.pkg.tar.zst
+sudo pacman -U jazzclub-0.2.1-1-x86_64.pkg.tar.zst
 ```
 
 **macOS** on Apple Silicon, without Homebrew
 
 ```sh
-tar -xzf jazzclub-0.2.0-macos-arm64.tar.gz
-sudo install -m 755 jazzclub-0.2.0-macos-arm64/bin/jazzclub /usr/local/bin/
+tar -xzf jazzclub-0.2.1-macos-arm64.tar.gz
+sudo install -m 755 jazzclub-0.2.1-macos-arm64/bin/jazzclub /usr/local/bin/
 sudo install -d /usr/local/libexec/jazzclub
-sudo install -m 644 jazzclub-0.2.0-macos-arm64/libexec/jazzclub/libconnector.dylib /usr/local/libexec/jazzclub/
+sudo install -m 644 jazzclub-0.2.1-macos-arm64/libexec/jazzclub/libconnector.dylib /usr/local/libexec/jazzclub/
 # macOS quarantines downloaded files
 xattr -d com.apple.quarantine /usr/local/bin/jazzclub /usr/local/libexec/jazzclub/libconnector.dylib
 ```
@@ -120,6 +120,10 @@ also finds it in the binary's own directory.
 
 Every release comes with a `SHA256SUMS` file. Check your download with
 `sha256sum -c SHA256SUMS --ignore-missing`, or on macOS `shasum -a 256 -c SHA256SUMS --ignore-missing`.
+Starting with 0.2.1, release packages also have GitHub build provenance attestations. Verify a
+package with `gh attestation verify <downloaded-package> --repo tedtedted/jazzclub`; a successful
+checksum check establishes file integrity, while the attestation links it to the release workflow.
+
 The Linux packages install tab completion for bash; the macOS archive has it under
 `share/bash-completion/`.
 
@@ -574,8 +578,7 @@ Run `jazzclub -vv` and look at what it logs. Auth tokens and your password are n
 
 ## Differences from pianobar
 
-jazzclub 0.1 has all of pianobar's keys except the debug dump (`$`). Not there yet:
-
+jazzclub has all of pianobar's keys except the debug dump (`$`).
 
 Deliberately different:
 
@@ -620,8 +623,8 @@ is something worth shipping rather than after every pull request. What changed i
 under `Unreleased` there. Cutting a release takes two commands:
 
 ```sh
-scripts/release.sh prepare 0.2.0   # a pull request that dates the changelog
-scripts/release.sh tag 0.2.0       # once it is merged; the release workflow does the rest
+scripts/release.sh prepare 0.2.1   # a pull request that dates the changelog
+scripts/release.sh tag 0.2.1       # once it is merged; the release workflow does the rest
 ```
 
 [docs/release.md](docs/release.md) has the schedule, what each kind of version means, and the
@@ -634,6 +637,11 @@ To try the packaging on your own machine:
 scripts/smoke-test.sh target/jazzclub 0.0.0-test
 scripts/package-macos.sh 0.0.0-test arm64 target/jazzclub dist
 ```
+
+## Contributing
+
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers development,
+testing and contribution expectations. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
 
 ## Licence
 

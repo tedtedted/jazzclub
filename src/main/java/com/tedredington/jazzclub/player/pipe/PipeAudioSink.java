@@ -112,7 +112,30 @@ public final class PipeAudioSink implements AudioSink {
 
     @Override
     public void drain() {
-        // whatever is in the pipe belongs to its reader now
+        Process child = feeder;
+        OutputStream target = out;
+        if (closing || child == null || target == null || bytesWritten.get() == 0) {
+            return;
+        }
+        try {
+            // Bytes accepted by our stdin pipe may still be waiting for cat to copy
+            // them to the audio FIFO. Send EOF and let it finish before close kills it.
+            target.close();
+            int status = child.waitFor();
+            if (!closing && status != 0) {
+                throw new IOException("Nothing is reading audio pipe " + pipe + " any more.");
+            }
+        } catch (IOException e) {
+            if (!closing) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (!closing) {
+                throw new java.io.UncheckedIOException("Interrupted while draining audio pipe " + pipe,
+                        new IOException(e));
+            }
+        }
     }
 
     @Override

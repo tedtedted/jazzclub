@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible problem with jazzclub.
+body:
+  - type: markdown
+    attributes:
+      value: 'For security problems, use SECURITY.md. Remove passwords, session keys, auth tokens and signed audio URLs from everything you share.'
+  - type: input
+    id: version
+    attributes:
+      label: jazzclub version
+      description: Output of jazzclub --version.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and architecture
+      placeholder: Debian 12 amd64, macOS arm64, etc.
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options: [Homebrew, Debian package, Arch package, macOS archive, Native source build, Java jar]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Relevant configuration
+      description: Include decoder, audio_pipe and network settings when relevant; remove all secrets.
+      render: ini
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Run jazzclub -vv if useful; remove tokens, passwords and signed audio URLs.
+      render: text

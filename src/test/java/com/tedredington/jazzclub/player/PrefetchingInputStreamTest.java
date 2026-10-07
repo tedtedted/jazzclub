@@ -9,12 +9,54 @@ import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 @Timeout(10)
 class PrefetchingInputStreamTest {
+
+    @Test
+    void waitsAtEndOfAFullBufferAndCloseReleasesTheProducer() throws Exception {
+        AtomicReference<Thread> producer = new AtomicReference<>();
+        CountDownLatch reachedEnd = new CountDownLatch(1);
+        AtomicBoolean sourceClosed = new AtomicBoolean();
+        InputStream source = new ByteArrayInputStream(new byte[16 * 1024]) {
+            @Override
+            public synchronized int read(byte[] bytes, int offset, int length) {
+                producer.set(Thread.currentThread());
+                int count = super.read(bytes, offset, length);
+                if (count == -1) {
+                    reachedEnd.countDown();
+                }
+                return count;
+            }
+
+            @Override
+            public void close() {
+                sourceClosed.set(true);
+            }
+        };
+        try (var stream = new PrefetchingInputStream(source, 16 * 1024)) {
+            assertThat(reachedEnd.await(2, TimeUnit.SECONDS)).isTrue();
+            // Nothing consumes the full queue, as when playback is paused near EOF.
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            boolean waited = false;
+            while (System.nanoTime() < deadline) {
+                if (producer.get().getState() == Thread.State.TIMED_WAITING) {
+                    waited = true;
+                    break;
+                }
+                Thread.sleep(5);
+            }
+            assertThat(waited).as("producer waits instead of spinning at EOF").isTrue();
+        }
+        assertThat(producer.get().isAlive()).isFalse();
+        assertThat(sourceClosed).isTrue();
+    }
 
     private static byte[] pattern(int length) {
         byte[] data = new byte[length];

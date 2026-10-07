@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ServiceLoader;
+import java.util.Arrays;
 
 import javax.sound.sampled.spi.MixerProvider;
 
@@ -59,13 +60,7 @@ public final class JavaSoundNativeSupport {
                 return;
             }
             Files.createDirectories(cacheDirectory);
-            Path target = cacheDirectory.resolve(fileName);
-            byte[] bytes = in.readAllBytes();
-            if (!Files.exists(target) || Files.size(target) != bytes.length) {
-                Path temp = Files.createTempFile(cacheDirectory, fileName, ".tmp");
-                Files.write(temp, bytes);
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            }
+            Path target = unpack(cacheDirectory, fileName, in.readAllBytes());
             String existing = System.getProperty("java.library.path", "");
             String directory = cacheDirectory.toAbsolutePath().toString();
             System.setProperty("java.library.path",
@@ -74,5 +69,20 @@ public final class JavaSoundNativeSupport {
         } catch (IOException e) {
             log.warn("Could not load the sound library; there may be no audio: {}", e.getMessage());
         }
+    }
+
+    /** Compare contents: a JDK update can change the library without changing its size. */
+    static Path unpack(Path cacheDirectory, String fileName, byte[] bytes) throws IOException {
+        Path target = cacheDirectory.resolve(fileName);
+        if (!Files.exists(target) || !Arrays.equals(Files.readAllBytes(target), bytes)) {
+            Path temp = Files.createTempFile(cacheDirectory, fileName, ".tmp");
+            try {
+                Files.write(temp, bytes);
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+        }
+        return target;
     }
 }

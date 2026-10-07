@@ -74,7 +74,9 @@ optdepend = ffmpeg: decoder = ffmpeg, resampling to another sample_rate, fallbac
 PKGINFO
 
 install -d "$out_dir"
-tar_args=(-C "$pkg" -cf - .)
+# libalpm requires the metadata at exactly .PKGINFO, not ./.PKGINFO.
+# Explicit root entries also avoid a redundant ./ directory in the package.
+tar_args=(-C "$pkg" -cf - .PKGINFO usr)
 if tar --version 2>/dev/null | grep -qi 'gnu tar'; then
   tar_args=(--sort=name --owner=0 --group=0 --numeric-owner "${tar_args[@]}")
 fi

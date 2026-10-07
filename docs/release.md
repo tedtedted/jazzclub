@@ -159,10 +159,37 @@ The Linux binaries are built on Ubuntu 22.04 on purpose. A binary only starts on
 new as the one it was linked against, and 22.04's glibc 2.35 is older than Debian 12's 2.36. Moving the
 build to a newer runner silently drops Debian stable; the smoke test prints the glibc each binary needs.
 
+## Release validation and provenance
+
+Both native CI and release builds run `python3 scripts/smoke-test-audio.py target/jazzclub`.
+The test signs into a local HTTPS fixture service, fetches synthetic AAC audio over local HTTP,
+and checks the duration and level of stereo PCM written to an audio FIFO. It uses no real account
+or sound card, and fails if the built-in decoder falls back to ffmpeg. The installed Homebrew
+executable runs the same test.
+
+Linux release jobs install the built packages into clean Debian 12 and Ubuntu 22.04 containers
+on both architectures, and an official Arch Linux container on x86_64. These tests verify package
+dependencies and installed library discovery as well as native playback. Arch ARM installation
+still needs a real aarch64 host; there is no official Arch ARM container in this matrix.
+
+GitHub Actions are pinned to commit SHAs and updated by Dependabot. Dependency review checks
+pull requests; a separate workflow submits the resolved Maven dependency graph for Dependabot
+monitoring on `main` and weekly.
+
+Published release packages and `SHA256SUMS` receive build provenance attestations before publication.
+Only the publish job has `id-token: write` and `attestations: write`. Rehearsals also generate
+and verify attestations, tied to their branch and source commit, without publishing a release. Users can verify a downloaded package with:
+
+```sh
+gh attestation verify jazzclub_<version>_amd64.deb --repo tedtedted/jazzclub
+```
+
+The workflow verifies every attestation against the release workflow, exact source commit and
+Git ref before publication. Rehearsals run this same verification before uploading their artifacts.
+
 ## Still to come
 
 - `jazzclub-bin` on the AUR, from the PKGBUILD in tedtedted/jazzclub#3, also updated by the workflow
 - Plain Linux tarballs (also in #3), for other distributions and then Homebrew on Linux
-- A tag ruleset so only maintainers can push `v*` tags, immutable releases, and build provenance
-  attestations
+- A tag ruleset so only maintainers can push `v*` tags, and immutable releases
 - macOS signing and notarization, if direct downloads should open without the quarantine step
