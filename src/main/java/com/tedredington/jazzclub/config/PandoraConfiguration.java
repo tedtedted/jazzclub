@@ -9,6 +9,7 @@ import com.tedredington.jazzclub.pandora.PandoraClient;
 import com.tedredington.jazzclub.pandora.PandoraTransport;
 import com.tedredington.jazzclub.pandora.http.RestClientPandoraTransport;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -24,10 +25,15 @@ class PandoraConfiguration {
         return InstantSource.system();
     }
 
-    @Bean
-    PandoraTransport pandoraTransport(RestClient.Builder builder, PandoraProperties properties) {
-        HttpClient httpClient = HttpClientFactory.create(properties.timeout(),
+    @Bean(destroyMethod = "shutdownNow")
+    HttpClient pandoraHttpClient(PandoraProperties properties) {
+        return HttpClientFactory.create(properties.timeout(),
                 properties.apiProxy(System.getenv("http_proxy")), properties.bindTo(), properties.caBundle());
+    }
+
+    @Bean
+    PandoraTransport pandoraTransport(RestClient.Builder builder, PandoraProperties properties,
+                                     @Qualifier("pandoraHttpClient") HttpClient httpClient) {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(properties.timeout());
         return new RestClientPandoraTransport(builder.requestFactory(requestFactory).build());

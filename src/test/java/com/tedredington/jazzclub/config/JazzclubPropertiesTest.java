@@ -79,4 +79,14 @@ class JazzclubPropertiesTest {
         runner.withPropertyValues("jazzclub.audio-quality=ultra").run(context ->
                 assertThat(context).hasFailed());
     }
+
+    @Test
+    void nonFiniteGainAndBufferAboveTheLimitFailBinding() {
+        for (String value : java.util.List.of("NaN", "Infinity", "-Infinity")) {
+            runner.withPropertyValues("jazzclub.gain-mul=" + value).run(context ->
+                    assertThat(context).getFailure().rootCause().hasMessageContaining("gain_mul must be finite"));
+        }
+        runner.withPropertyValues("jazzclub.buffer-seconds=601").run(context ->
+                assertThat(context).getFailure().rootCause().hasMessageContaining("buffer_seconds"));
+    }
 }

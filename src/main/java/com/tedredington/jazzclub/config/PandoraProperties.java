@@ -7,18 +7,24 @@ import java.time.temporal.ChronoUnit;
 
 import com.tedredington.jazzclub.network.ProxySettings;
 import com.tedredington.jazzclub.pandora.PartnerCredentials;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.boot.convert.DurationUnit;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Connection settings for Pandora. Defaults equal pianobar's; the property names follow its
  * config keys ({@code rpc_host}, {@code rpc_tls_port}, {@code timeout}, {@code proxy}, {@code partner_user}, ...).
  */
 @ConfigurationProperties("jazzclub.pandora")
+@Validated
 public record PandoraProperties(
-        @DefaultValue("tuner.pandora.com") String rpcHost,
-        @DefaultValue("443") int rpcTlsPort,
+        @DefaultValue("tuner.pandora.com") @NotBlank(message = "rpc_host must not be empty") String rpcHost,
+        @DefaultValue("443") @Min(value = 1, message = "rpc_tls_port must be between 1 and 65535")
+        @Max(value = 65_535, message = "rpc_tls_port must be between 1 and 65535") int rpcTlsPort,
         // a bare number means seconds, as in pianobar's "timeout = 30"
         @DefaultValue("30") @DurationUnit(ChronoUnit.SECONDS) Duration timeout,
         String proxy,
@@ -28,12 +34,6 @@ public record PandoraProperties(
         @DefaultValue Partner partner) {
 
     public PandoraProperties {
-        if (rpcHost.isBlank()) {
-            throw new IllegalArgumentException("rpc_host must not be empty");
-        }
-        if (rpcTlsPort < 1 || rpcTlsPort > 65_535) {
-            throw new IllegalArgumentException("rpc_tls_port must be between 1 and 65535, was " + rpcTlsPort);
-        }
         if (timeout.isNegative() || timeout.isZero()) {
             throw new IllegalArgumentException("timeout must be positive, was " + timeout);
         }
