@@ -255,6 +255,9 @@
                         <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
                         <!-- see HttpClientFactory.allowProxyCredentialsForHttps: may be read at build time -->
                         <buildArg>-Djdk.http.auth.tunneling.disabledSchemes=</buildArg>
+                        <!-- native images otherwise default to 80% of physical RAM; a leak should kill
+                             jazzclub, not swap the whole machine. A song buffer is at most 128 MB. -->
+                        <buildArg>-R:MaxHeapSize=512m</buildArg>
                     </buildArgs>
                 </configuration>
             </plugin>

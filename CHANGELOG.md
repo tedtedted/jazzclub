@@ -19,6 +19,8 @@ Add a line under `Unreleased` in every pull request that changes something a use
 - Command-line help correctly describes ffmpeg as optional.
 - Arch Linux packages now place their metadata where pacman expects it, fixing installation failures.
 - Audio pipe output now drains the feeder before closing it, preserving the end of each track.
+- The native executable's Java heap is capped at 512 MB, limiting its impact on the machine
+  if memory use grows unexpectedly.
 
 ### Changed
 
