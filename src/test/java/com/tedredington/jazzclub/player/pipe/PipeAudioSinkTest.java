@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.io.ByteArrayOutputStream;
 
 import com.tedredington.jazzclub.player.PcmFormat;
 import org.junit.jupiter.api.Test;
@@ -136,7 +138,52 @@ class PipeAudioSinkTest {
     }
 
     @Test
-    void pauseAndDrainNeedNoSpecialHandling() throws Exception {
+    void drainingPreservesTheTailOfAudioForASlowReader() throws Exception {
+        Path pipe = mkfifo();
+        PipeAudioSink sink = new PipeAudioSink(pipe, FORMAT);
+        CompletableFuture<byte[]> received = new CompletableFuture<>();
+        Thread.ofPlatform().daemon(true).start(() -> {
+            try (InputStream reader = Files.newInputStream(pipe)) {
+                ByteArrayOutputStream captured = new ByteArrayOutputStream();
+                byte[] chunk = new byte[4096];
+                for (int count; (count = reader.read(chunk)) != -1;) {
+                    captured.write(chunk, 0, count);
+                    Thread.sleep(2);
+                }
+                received.complete(captured.toByteArray());
+            } catch (Exception e) {
+                received.completeExceptionally(e);
+            }
+        });
+        byte[] audio = new byte[1_000_000];
+        java.util.Arrays.fill(audio, (byte) 42);
+        try {
+            sink.open();
+            sink.write(audio, 0, audio.length);
+            sink.drain();
+        } finally {
+            sink.close();
+        }
+
+        assertThat(received.get(5, TimeUnit.SECONDS)).isEqualTo(audio);
+    }
+
+    @Test
+    void closingUnblocksDrainWhenNoOneReadsTheFifo() throws Exception {
+        PipeAudioSink sink = new PipeAudioSink(mkfifo(), FORMAT);
+        sink.open();
+        sink.write(new byte[4], 0, 4); // accepted by the feeder's stdin, which has no FIFO reader
+        Thread drainer = Thread.ofPlatform().daemon(true).start(sink::drain);
+        Thread.sleep(100);
+
+        sink.close();
+        drainer.join(2_000);
+
+        assertThat(drainer.isAlive()).isFalse();
+    }
+
+    @Test
+    void pauseAndEmptyDrainNeedNoSpecialHandling() throws Exception {
         PipeAudioSink sink = new PipeAudioSink(mkfifo(), FORMAT);
         sink.open();
         sink.setPaused(true);

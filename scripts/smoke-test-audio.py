@@ -103,7 +103,6 @@ ca_bundle = {cert}
 autostart_station = 200
 audio_pipe = {fifo}
 decoder = lavaplayer
-ffmpeg = {work / 'ffmpeg-must-not-be-used'}
 event_command = {hook}
 volume = 0
 timeout = 5
@@ -113,6 +112,7 @@ timeout = 5
                ("http_proxy", "https_proxy", "all_proxy", "spring_application_json", "java_tool_options", "jdk_java_options")}
         for name in ("CONFIG", "STATE", "CACHE"):
             env[f"XDG_{name}_HOME"] = str(work / name.lower())
+        env["JAZZCLUB_FFMPEG"] = str(work / "ffmpeg-must-not-be-used")
         player = reader = None
         try:
             with pcm_file.open("wb") as pcm, (work / "player.log").open("wb") as log:

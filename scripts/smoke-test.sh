@@ -35,7 +35,7 @@ echo "binary size: ${size_mb} MB"
 
 # Informational, Linux only: the oldest glibc this binary runs on, and what the embedded Java Sound
 # library needs at run time. Packagers want to know both.
-if [[ "$(uname -s)" == Linux ]]; then
+if [[ "$(uname -s)" == Linux ]] && command -v objdump > /dev/null; then
     echo "requires glibc >= $(objdump -T "$binary" | grep -oE 'GLIBC_[0-9.]+' | sort -uV | tail -1 | cut -d_ -f2)"
     if [[ -n "${JAVA_HOME:-}" && -f "$JAVA_HOME/lib/libjsound.so" ]]; then
         echo "libjsound needs:"; ldd "$JAVA_HOME/lib/libjsound.so" | grep -E 'asound|not found' || true

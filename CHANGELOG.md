@@ -17,6 +17,8 @@ Add a line under `Unreleased` in every pull request that changes something a use
   so later events can still be delivered.
 - A changed native sound library is refreshed on upgrade even when its file size is unchanged.
 - Command-line help correctly describes ffmpeg as optional.
+- Arch Linux packages now place their metadata where pacman expects it, fixing installation failures.
+- Audio pipe output now drains the feeder before closing it, preserving the end of each track.
 
 ### Changed
 
