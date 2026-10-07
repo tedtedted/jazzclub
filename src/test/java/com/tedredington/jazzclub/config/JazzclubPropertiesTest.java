@@ -89,4 +89,24 @@ class JazzclubPropertiesTest {
         runner.withPropertyValues("jazzclub.buffer-seconds=601").run(context ->
                 assertThat(context).getFailure().rootCause().hasMessageContaining("buffer_seconds"));
     }
+
+    @Test
+    void validBoundaryValuesStillBind() {
+        runner.withPropertyValues("jazzclub.gain-mul=0", "jazzclub.history=0",
+                        "jazzclub.max-retry=1", "jazzclub.buffer-seconds=0")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    JazzclubProperties properties = context.getBean(JazzclubProperties.class);
+                    assertThat(properties.gainMul()).isZero();
+                    assertThat(properties.history()).isZero();
+                    assertThat(properties.maxRetry()).isEqualTo(1);
+                    assertThat(properties.bufferSeconds()).isZero();
+                });
+        runner.withPropertyValues("jazzclub.buffer-seconds=600", "jazzclub.gain-mul=2")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(JazzclubProperties.class).bufferSeconds()).isEqualTo(600);
+                    assertThat(context.getBean(JazzclubProperties.class).gainMul()).isEqualTo(2);
+                });
+    }
 }

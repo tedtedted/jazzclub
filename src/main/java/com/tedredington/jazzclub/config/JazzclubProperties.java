@@ -7,14 +7,8 @@ import com.tedredington.jazzclub.app.StationSort;
 import com.tedredington.jazzclub.pandora.model.AudioQuality;
 import com.tedredington.jazzclub.player.DecoderType;
 import com.tedredington.jazzclub.player.PcmFormat;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
-import org.springframework.validation.annotation.Validated;
 
 /**
  * Player-level settings. Defaults equal pianobar's.
@@ -40,21 +34,19 @@ import org.springframework.validation.annotation.Validated;
  * @param keys             {@code act_*} overrides, keyed by pianobar's config key
  */
 @ConfigurationProperties("jazzclub")
-@Validated
 public record JazzclubProperties(
         Path configFile,
         Path stateFile,
         @DefaultValue("false") boolean interactive,
         @DefaultValue("high") AudioQuality audioQuality,
         @DefaultValue("0") int volume,
-        @DefaultValue("1.0") @DecimalMin(value = "0", message = "gain_mul must not be negative") double gainMul,
-        @DefaultValue("5") @PositiveOrZero(message = "history must not be negative") int history,
-        @DefaultValue("3") @Positive(message = "max_retry must be at least 1") int maxRetry,
+        @DefaultValue("1.0") double gainMul,
+        @DefaultValue("5") int history,
+        @DefaultValue("3") int maxRetry,
         String autostartStation,
         @DefaultValue("name_az") StationSort sort,
         @DefaultValue("true") boolean autoselect,
-        @DefaultValue("5") @Min(value = 0, message = "buffer_seconds must be between 0 and 600")
-        @Max(value = 600, message = "buffer_seconds must be between 0 and 600") int bufferSeconds,
+        @DefaultValue("5") int bufferSeconds,
         @DefaultValue("0") int sampleRate,
         Path audioPipe,
         @DefaultValue("lavaplayer") DecoderType decoder,
@@ -68,7 +60,19 @@ public record JazzclubProperties(
         if (!Double.isFinite(gainMul)) {
             throw new IllegalArgumentException("gain_mul must be finite, was " + gainMul);
         }
+        if (gainMul < 0) {
+            throw new IllegalArgumentException("gain_mul must not be negative, was " + gainMul);
+        }
+        if (history < 0) {
+            throw new IllegalArgumentException("history must not be negative, was " + history);
+        }
+        if (bufferSeconds < 0 || bufferSeconds > 600) {
+            throw new IllegalArgumentException("buffer_seconds must be between 0 and 600, was " + bufferSeconds);
+        }
         PcmFormat.of(sampleRate); // validates
+        if (maxRetry < 1) {
+            throw new IllegalArgumentException("max_retry must be at least 1, was " + maxRetry);
+        }
     }
 
     /** pianobar's {@code format_*} strings and icons. */
