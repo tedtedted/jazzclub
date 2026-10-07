@@ -57,6 +57,9 @@ public record JazzclubProperties(
         @DefaultValue Map<String, String> keys) {
 
     public JazzclubProperties {
+        if (!Double.isFinite(gainMul)) {
+            throw new IllegalArgumentException("gain_mul must be finite, was " + gainMul);
+        }
         if (gainMul < 0) {
             throw new IllegalArgumentException("gain_mul must not be negative, was " + gainMul);
         }

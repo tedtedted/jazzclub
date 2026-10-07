@@ -120,6 +120,10 @@
                     <!-- generates the GraalVM reflection config for the picocli command at compile time -->
                     <annotationProcessorPaths>
                         <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                        </path>
+                        <path>
                             <groupId>info.picocli</groupId>
                             <artifactId>picocli-codegen</artifactId>
                             <version>${picocli.version}</version>

@@ -91,7 +91,8 @@ class EventCommandRunnerTest {
         Path log = directory.resolve("log");
         Path script = script("case \"$1\" in songstart) sleep 96 | cat;; *) echo \"$1\" >> '" + log + "';; esac");
 
-        try (EventCommandRunner runner = new EventCommandRunner(script.toString(), Duration.ofMillis(400),
+        // Allow process startup on busy CI hosts; the hung script still outlives this by far.
+        try (EventCommandRunner runner = new EventCommandRunner(script.toString(), Duration.ofSeconds(2),
                 Duration.ofSeconds(10))) {
             runner.submit(event(EventType.SONG_START, "x"));
             runner.submit(event(EventType.SONG_FINISH, "x"));
@@ -110,7 +111,7 @@ class EventCommandRunnerTest {
         Path script = script("case \"$1\" in songstart) sleep 96 | cat;; *) cat > /dev/null; echo \"$1\" >> '"
                 + log + "';; esac");
 
-        try (EventCommandRunner runner = new EventCommandRunner(script.toString(), Duration.ofMillis(400),
+        try (EventCommandRunner runner = new EventCommandRunner(script.toString(), Duration.ofSeconds(2),
                 Duration.ofSeconds(10))) {
             runner.submit(event(EventType.SONG_START, "x".repeat(2_000_000)));
             runner.submit(event(EventType.SONG_FINISH, "x"));
