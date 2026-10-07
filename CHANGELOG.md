@@ -8,6 +8,11 @@ Add a line under `Unreleased` in every pull request that changes something a use
 
 ## [Unreleased]
 
+### Fixed
+
+- jazzclub's memory is capped at 512 MB. Before, it could grow to most of the machine's RAM
+  if something went wrong, slowing everything else down.
+
 ## [0.2.0] - 2026-10-02
 
 ### Added
