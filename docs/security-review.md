@@ -141,6 +141,40 @@ References: [Last.fm desktop authentication](https://www.last.fm/api/desktopauth
 [authentication specification](https://www.last.fm/api/authspec), and
 [mobile session method and suspension error](https://www.last.fm/api/show/auth.getMobileSession).
 
+## Dependency alerts observed when creating this tracker
+
+**Priority: triage alongside the transport and terminal fixes. Status: open.**
+
+On October 6, 2026, GitHub's Dependabot API reported 18 open alerts on the default
+branch: 12 high, 5 medium (shown as moderate in GitHub's push summary), and 1 low.
+This is a point-in-time dependency finding, not proof of 18 exploitable application
+vulnerabilities. Some advisories affect both Jackson major versions and therefore
+appear in more than one alert.
+
+| Dependency group | Alerts | Highest severity | Patched versions reported by GitHub |
+| --- | --- | --- | --- |
+| Jackson 3 core/databind (`tools.jackson.core`) | 4, 6, 8, 11, 13, 15, 17 | High | Individual fixes in 3.1.6; all listed fixes in 3.1.7 |
+| Jackson 2 core/databind (`com.fasterxml.jackson.core`) | 5, 7, 9, 10, 12, 14, 16 | High | Individual fixes in 2.21.6; all listed fixes in 2.21.7 |
+| jsoup | 3, 18 | High | 1.23.1 and 1.23.2 respectively |
+| Commons IO | 1 | High | 2.14.0 |
+| Rhino | 2 | Low | 1.7.14.1 |
+
+The review's runtime dependency tree includes both Jackson major versions, jsoup
+1.16.1, Commons IO 2.13.0, and Rhino 1.7.14. Jackson 3 is used directly for API JSON;
+the other listed packages arrive through LavaPlayer. The app reads API JSON as
+trees and uses only a subset of LavaPlayer. Reachability of the particular affected
+parsers, coercions, deserializers, source managers, and scripting functions remains
+to be checked before judging application impact.
+
+- [ ] Triage every open alert against reachable production behavior; document any
+      dismissal with a specific code-path rationale.
+- [ ] Update affected dependencies or the parent/library that manages them, and
+      verify compatibility with the native build and both decoders.
+- [ ] Check GitHub's alert state after remediation; do not rely on the counts in
+      this snapshot remaining current.
+
+Source: [repository Dependabot alerts](https://github.com/tedtedted/jazzclub/security/dependabot).
+
 ## Focused security testing beyond these findings
 
 - [ ] Inventory and scan runtime dependencies, including the native decoder code
