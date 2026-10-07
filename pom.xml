@@ -20,7 +20,7 @@
     <properties>
         <java.version>25</java.version>
         <revision>0.3.0-SNAPSHOT</revision>
-        <jline.version>4.4.5</jline.version>
+        <jline.version>4.4.6</jline.version>
         <picocli.version>4.7.7</picocli.version>
         <lavaplayer.version>2.2.7</lavaplayer.version>
         <!-- LavaPlayer's name for this build machine's platform; set by the natives-* profiles below -->
