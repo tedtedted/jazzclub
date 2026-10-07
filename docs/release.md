@@ -177,15 +177,15 @@ pull requests; a separate workflow submits the resolved Maven dependency graph f
 monitoring on `main` and weekly.
 
 Published release packages and `SHA256SUMS` receive build provenance attestations before publication.
-Only the publish job has `id-token: write` and `attestations: write`; rehearsal runs do not issue
-attestations. Users can verify a downloaded package with:
+Only the publish job has `id-token: write` and `attestations: write`. Rehearsals also generate
+and verify attestations, tied to their branch and source commit, without publishing a release. Users can verify a downloaded package with:
 
 ```sh
 gh attestation verify jazzclub_<version>_amd64.deb --repo tedtedted/jazzclub
 ```
 
-Attestation publication and verification are checked as part of the first actual release using
-this workflow. A rehearsal validates the builds and packages but cannot prove that publish step.
+The workflow verifies every attestation against the release workflow, exact source commit and
+Git ref before publication. Rehearsals run this same verification before uploading their artifacts.
 
 ## Still to come
 
