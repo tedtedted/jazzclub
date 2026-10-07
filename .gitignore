@@ -32,6 +32,10 @@ dependency-reduced-pom.xml
 !src/test/resources/network/*.pem
 *.key
 
+### Python smoke-test build output ###
+__pycache__/
+*.pyc
+
 ### Logs ###
 *.log
 logs/

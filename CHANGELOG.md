@@ -8,6 +8,22 @@ Add a line under `Unreleased` in every pull request that changes something a use
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-06
+
+### Fixed
+
+- Pausing near the end of a song no longer leaves the audio prefetch thread consuming a CPU core.
+- Event scripts that do not read their input are timed out even when the event payload fills the pipe,
+  so later events can still be delivered.
+- A changed native sound library is refreshed on upgrade even when its file size is unchanged.
+- Command-line help correctly describes ffmpeg as optional.
+
+### Changed
+
+- Release validation now exercises built-in AAC playback through the native executable and tests
+  installed packages on Debian 12, Ubuntu 22.04 and Arch Linux x86_64.
+- Release packages include GitHub build provenance attestations for download verification.
+
 ## [0.2.0] - 2026-10-02
 
 ### Added
@@ -50,6 +66,7 @@ Tagged, but its release build failed and it was never published.
 - Packages for Debian 12 and Ubuntu 22.04 or newer (amd64, arm64), Arch Linux (x86_64, aarch64)
   and macOS (Apple Silicon), with bash completion.
 
-[Unreleased]: https://github.com/tedtedted/jazzclub/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tedtedted/jazzclub/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/tedtedted/jazzclub/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tedtedted/jazzclub/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tedtedted/jazzclub/releases/tag/v0.1.0

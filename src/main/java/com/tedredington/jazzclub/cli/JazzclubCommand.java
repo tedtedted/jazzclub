@@ -31,7 +31,7 @@ import picocli.CommandLine.Option;
                 "  user = you@example.com",
                 "  password_command = security find-generic-password -s jazzclub -w",
                 "",
-                "jazzclub needs ffmpeg on the PATH to decode audio."})
+                "Audio decoding is built in. ffmpeg is optional for resampling or fallback."})
 public final class JazzclubCommand {
 
     @Option(names = {"-c", "--config"}, paramLabel = "FILE",

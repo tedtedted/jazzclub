@@ -59,13 +59,17 @@ public final class EventCommandRunner implements AutoCloseable {
             log.warn("Cannot start event_command '{}': {}", command, e.getMessage());
             return;
         }
-        try {
+        // Writing can block too, when a script does not read stdin. Start it separately
+        // so the timeout covers both delivering the payload and running the script.
+        Thread writer = Thread.ofPlatform().name("event-command-input").daemon(true).start(() -> {
             try (OutputStream stdin = process.getOutputStream()) {
                 stdin.write(input.getBytes(StandardCharsets.UTF_8));
             } catch (IOException e) {
                 // a script that does not read its input closes the pipe early; that is its business
                 log.debug("event_command did not read all of its input for {}", eventName);
             }
+        });
+        try {
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 log.warn("event_command still running after {}s for '{}', killing it", timeout.toSeconds(), eventName);
             } else if (process.exitValue() != 0) {
@@ -74,8 +78,16 @@ public final class EventCommandRunner implements AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
-            process.descendants().forEach(ProcessHandle::destroyForcibly);
-            process.destroyForcibly();
+            try {
+                process.descendants().forEach(ProcessHandle::destroyForcibly);
+            } finally {
+                process.destroyForcibly(); // also unblocks the input writer
+                try {
+                    writer.join(Duration.ofSeconds(1));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
     }
 

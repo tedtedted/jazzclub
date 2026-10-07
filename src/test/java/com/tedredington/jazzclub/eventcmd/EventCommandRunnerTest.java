@@ -105,6 +105,21 @@ class EventCommandRunnerTest {
     }
 
     @Test
+    void timeoutAlsoCoversAFullInputPipe() throws IOException {
+        Path log = directory.resolve("log");
+        Path script = script("case \"$1\" in songstart) sleep 96 | cat;; *) cat > /dev/null; echo \"$1\" >> '"
+                + log + "';; esac");
+
+        try (EventCommandRunner runner = new EventCommandRunner(script.toString(), Duration.ofMillis(400),
+                Duration.ofSeconds(10))) {
+            runner.submit(event(EventType.SONG_START, "x".repeat(2_000_000)));
+            runner.submit(event(EventType.SONG_FINISH, "x"));
+        }
+
+        assertThat(Files.readAllLines(log)).containsExactly("songfinish");
+    }
+
+    @Test
     void aScriptThatIgnoresItsInputOrFailsDoesNoHarm() throws IOException {
         Path script = script("exit 3");
 
