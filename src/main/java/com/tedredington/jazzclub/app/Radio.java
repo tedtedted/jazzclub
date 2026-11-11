@@ -136,11 +136,14 @@ public final class Radio {
      * gone, so the song that is cut short is reported here; scrobblers decide on "songfinish".
      */
     public void shutdown() {
-        if (playbackId != NOTHING_PLAYING) {
-            playbackId = NOTHING_PLAYING;
-            events.emit(EventType.SONG_FINISH, state.selection(), EventResult.OK, player.elapsed());
+        try {
+            if (playbackId != NOTHING_PLAYING) {
+                playbackId = NOTHING_PLAYING;
+                events.emit(EventType.SONG_FINISH, state.selection(), EventResult.OK, player.elapsed());
+            }
+        } finally {
+            player.stop();
         }
-        player.stop();
     }
 
     private boolean fetchPlaylist() {

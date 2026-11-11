@@ -28,7 +28,7 @@ public record PandoraProperties(
         @DefaultValue Partner partner) {
 
     public PandoraProperties {
-        if (rpcHost.isBlank()) {
+        if (rpcHost == null || rpcHost.isBlank()) {
             throw new IllegalArgumentException("rpc_host must not be empty");
         }
         if (rpcTlsPort < 1 || rpcTlsPort > 65_535) {

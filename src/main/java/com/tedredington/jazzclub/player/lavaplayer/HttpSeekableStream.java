@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 
 import com.sedmelluq.discord.lavaplayer.tools.io.SeekableInputStream;
 import com.sedmelluq.discord.lavaplayer.track.info.AudioTrackInfoProvider;
@@ -37,8 +38,9 @@ final class HttpSeekableStream extends SeekableInputStream {
     }
 
     /** Starts downloading {@code uri} and waits for the first response. */
-    static HttpSeekableStream open(HttpClient http, URI uri, DownloadPolicy policy) throws IOException {
-        SongDownload download = new SongDownload(http, uri, policy);
+    static HttpSeekableStream open(HttpClient http, URI uri, DownloadPolicy policy,
+                                   ScheduledExecutorService watchdog) throws IOException {
+        SongDownload download = new SongDownload(http, uri, policy, watchdog);
         download.start();
         try {
             return over(download);

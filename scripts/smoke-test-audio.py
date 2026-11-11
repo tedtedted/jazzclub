@@ -6,6 +6,7 @@ import http.server
 import json
 import math
 import os
+import signal
 from pathlib import Path
 import ssl
 import subprocess
@@ -19,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "src/test/resources/fixtures"
 
 
-def run(command):
+def run(command, signal_shutdown=False):
     with tempfile.TemporaryDirectory(prefix="jazzclub-audio-") as directory:
         work = Path(directory)
         cert, key = work / "cert.pem", work / "key.pem"
@@ -116,30 +117,54 @@ timeout = 5
         player = reader = None
         try:
             with pcm_file.open("wb") as pcm, (work / "player.log").open("wb") as log:
-                reader = subprocess.Popen(["cat", str(fifo)], stdout=pcm)
+                if signal_shutdown:
+                    # Keep playback active by reading more slowly than the decoder writes.
+                    slow_reader = """import sys, time
+with open(sys.argv[1], 'rb', buffering=0) as source:
+    while chunk := source.read(4096):
+        sys.stdout.buffer.write(chunk)
+        sys.stdout.buffer.flush()
+        time.sleep(0.02)
+"""
+                    reader = subprocess.Popen([sys.executable, "-c", slow_reader, str(fifo)], stdout=pcm)
+                else:
+                    reader = subprocess.Popen(["cat", str(fifo)], stdout=pcm)
                 player = subprocess.Popen(command + ["--config", str(player_config), "-vv"],
                                           stdin=subprocess.PIPE, stdout=log, stderr=log, env=env)
                 deadline = time.monotonic() + 30
-                while not finished.exists():
+                while not (pcm_file.stat().st_size >= 40_000 if signal_shutdown else finished.exists()):
                     if player.poll() is not None:
                         raise AssertionError(f"Player exited before finishing audio: {player.returncode}")
                     if time.monotonic() >= deadline:
                         raise AssertionError("Native audio test timed out")
                     time.sleep(0.05)
-                player.stdin.write(b"q")
-                player.stdin.flush()
-                assert player.wait(timeout=10) == 0, "Player failed on quit"
+                if signal_shutdown:
+                    assert not finished.exists(), "Track ended before the signal shutdown check"
+                    player.send_signal(signal.SIGTERM)
+                    assert player.wait(timeout=10) in (0, 143, -signal.SIGTERM), "Unexpected SIGTERM exit status"
+                    assert finished.exists(), "Shutdown lost the final songfinish event"
+                    assert "autostart_station = 200" in (work / "state/jazzclub/state").read_text(), \
+                        "Shutdown failed to persist playback state"
+                else:
+                    player.stdin.write(b"q")
+                    player.stdin.flush()
+                    assert player.wait(timeout=10) == 0, "Player failed on quit"
                 reader.wait(timeout=5)
             output = (work / "player.log").read_text(errors="replace")
             assert "Decoding with ffmpeg" not in output, "Built-in decoder fell back to ffmpeg"
             assert "Decoding failed" not in output, "Audio decoding failed"
+            assert "RejectedExecutionException" not in output, "Shutdown delivered an event to a closed worker"
+            assert "Player loop did not exit" not in output, "Shutdown exceeded its main-loop wait budget"
             assert not errors, errors
             for expected in ("auth.partnerLogin", "auth.userLogin", "user.getStationList", "station.getPlaylist", "audio"):
                 assert expected in requests, f"Missing request: {expected}"
             data = pcm_file.read_bytes()
             assert len(data) % 4 == 0, "PCM output is not stereo frame aligned"
             duration = len(data) / (44100 * 4)
-            assert 3.0 <= duration <= 3.25, f"Expected a full three-second track, got {duration:.3f}s"
+            if signal_shutdown:
+                assert 0.2 <= duration < 3.0, f"Expected interrupted playback, got {duration:.3f}s"
+            else:
+                assert 3.0 <= duration <= 3.25, f"Expected a full three-second track, got {duration:.3f}s"
             samples = array.array("h", data)
             if sys.byteorder != "little":
                 samples.byteswap()
@@ -147,8 +172,9 @@ timeout = 5
             middle = samples[len(samples)//4:3*len(samples)//4]
             rms = math.sqrt(sum((sample / 32768) ** 2 for sample in middle) / len(middle))
             db = 20 * math.log10(max(rms, 1e-12))
-            assert -17 <= db <= -13, f"Unexpected fixture level: {db:.1f} dBFS"
-            print(f"Native audio passed: local HTTPS login, AAC decode, {duration:.3f}s stereo PCM ({db:.1f} dBFS), clean quit")
+            assert (-25 if signal_shutdown else -17) <= db <= -13, f"Unexpected fixture level: {db:.1f} dBFS"
+            ending = "SIGTERM with final event and saved state" if signal_shutdown else "clean quit"
+            print(f"Native audio passed: local HTTPS login, AAC decode, {duration:.3f}s stereo PCM ({db:.1f} dBFS), {ending}")
         except Exception:
             if (work / "player.log").exists():
                 print((work / "player.log").read_text(errors="replace"), file=sys.stderr)
@@ -167,6 +193,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path, help="Native binary, or application jar with --jar")
     parser.add_argument("--jar", action="store_true", help="Use the JVM build while developing this test")
+    parser.add_argument("--signal", action="store_true", help="Send SIGTERM during playback and check final cleanup")
     args = parser.parse_args()
     command = ["java", "-jar", str(args.binary.absolute())] if args.jar else [str(args.binary.absolute())]
-    run(command)
+    run(command, args.signal)

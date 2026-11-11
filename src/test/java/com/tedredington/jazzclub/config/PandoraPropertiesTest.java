@@ -76,11 +76,25 @@ class PandoraPropertiesTest {
 
     @Test
     void nonsenseValuesFailStartupWithAReadableReason() {
-        runner.withPropertyValues("jazzclub.pandora.rpc-tls-port=70000").run(context ->
-                assertThat(context).getFailure().rootCause().hasMessageContaining("rpc_tls_port must be between"));
-        runner.withPropertyValues("jazzclub.pandora.timeout=0s").run(context ->
-                assertThat(context).getFailure().rootCause().hasMessageContaining("timeout must be positive"));
+        for (int port : new int[]{-1, 0, 65_536, 70_000}) {
+            runner.withPropertyValues("jazzclub.pandora.rpc-tls-port=" + port).run(context ->
+                    assertThat(context).getFailure().rootCause().hasMessageContaining("rpc_tls_port must be between"));
+        }
+        for (String timeout : new String[]{"0s", "-1s"}) {
+            runner.withPropertyValues("jazzclub.pandora.timeout=" + timeout).run(context ->
+                    assertThat(context).getFailure().rootCause().hasMessageContaining("timeout must be positive"));
+        }
         runner.withPropertyValues("jazzclub.pandora.rpc-host= ").run(context ->
                 assertThat(context).getFailure().rootCause().hasMessageContaining("rpc_host"));
+    }
+
+    @Test
+    void validPortBoundariesStillBind() {
+        for (int port : new int[]{1, 65_535}) {
+            runner.withPropertyValues("jazzclub.pandora.rpc-tls-port=" + port).run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(PandoraProperties.class).rpcTlsPort()).isEqualTo(port);
+            });
+        }
     }
 }

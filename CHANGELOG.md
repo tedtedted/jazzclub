@@ -8,6 +8,15 @@ Add a line under `Unreleased` in every pull request that changes something a use
 
 ## [Unreleased]
 
+### Fixed
+
+- Shutdown finishes playback and delivers the final song event before Last.fm and event-script workers
+  close, including when the process receives `SIGTERM`.
+- Explicit config and verbosity flags take precedence over environment variables, Java system
+  properties, and built-in defaults.
+- Decoder and native audio setup waits until the first song starts.
+- Non-finite `gain_mul` settings are rejected instead of producing unusable audio gain.
+
 ## [0.2.1] - 2026-10-06
 
 ### Fixed

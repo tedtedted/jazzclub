@@ -130,7 +130,9 @@ jobs:
 
       - name: Test native audio
         if: steps.gate.outputs.build == 'true'
-        run: python3 scripts/smoke-test-audio.py target/jazzclub
+        run: |
+          python3 scripts/smoke-test-audio.py target/jazzclub
+          python3 scripts/smoke-test-audio.py target/jazzclub --signal
 
       - name: Upload binary
         if: steps.gate.outputs.build == 'true'

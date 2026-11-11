@@ -6,6 +6,7 @@ import static com.tedredington.jazzclub.testsupport.TestData.HARD_BOP;
 import static com.tedredington.jazzclub.testsupport.TestData.QUICKMIX;
 import static com.tedredington.jazzclub.testsupport.TestData.song;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
@@ -258,6 +259,22 @@ class RadioTest {
         radio.shutdown();
 
         assertThat(events.all()).isEmpty();
+    }
+
+    @Test
+    void shuttingDownStillStopsPlaybackWhenAFinalEventListenerFails() {
+        var emitter = new com.tedredington.jazzclub.app.event.PlayerEvents(state, player, event -> {
+            if (event.type() == EventType.SONG_FINISH) {
+                throw new IllegalStateException("listener failed");
+            }
+        }, StationSort.NAME_AZ.comparator());
+        Radio failingRadio = new Radio(client, player, state, console, new Renderer(FORMAT),
+                AudioQuality.MEDIUM, 3, emitter);
+        client.playlists.add(List.of(a));
+        failingRadio.tune(EVANS);
+
+        assertThatThrownBy(failingRadio::shutdown).hasMessage("listener failed");
+        assertThat(player.stops()).isEqualTo(1);
     }
 
     @Test

@@ -31,4 +31,11 @@ public record LaunchOptions(int verbosity, Path configFile) {
         }
         return properties;
     }
+
+    /** Translated options retain Boot's command-line precedence, including during early startup. */
+    public String[] toSpringArguments() {
+        return toProperties().entrySet().stream()
+                .map(entry -> "--" + entry.getKey() + "=" + entry.getValue())
+                .toArray(String[]::new);
+    }
 }

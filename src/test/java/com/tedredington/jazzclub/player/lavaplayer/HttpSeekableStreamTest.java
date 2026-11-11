@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +29,7 @@ class HttpSeekableStreamTest {
     private static final DownloadPolicy POLICY = new DownloadPolicy(Duration.ofMillis(500), Duration.ofMillis(300),
             1024 * 1024, 50, 3, 4096, Duration.ofMillis(10), Duration.ofMillis(40));
 
+    private static final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor();
     private static AudioFixtureServer server;
     private static byte[] file;
     private final HttpClient http = HttpClient.newHttpClient();
@@ -42,13 +45,14 @@ class HttpSeekableStreamTest {
     @AfterAll
     static void stop() {
         server.close();
+        watchdog.shutdownNow();
     }
 
     @Test
     void readsTheWholeFileInOneRequest() throws Exception {
         URI url = server.mount(FIXTURE);
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY, watchdog)) {
             assertThat(stream.getContentLength()).isEqualTo(file.length);
             assertThat(stream.readAllBytes()).isEqualTo(file);
             assertThat(stream.getPosition()).isEqualTo(file.length);
@@ -60,7 +64,7 @@ class HttpSeekableStreamTest {
     void seeksBackWithoutANewRequest() throws Exception {
         URI url = server.mount(FIXTURE);
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY, watchdog)) {
             stream.skipFully(30_000);
             stream.seek(1000);
 
@@ -74,7 +78,7 @@ class HttpSeekableStreamTest {
     void seeksForwardPastWhatHasArrivedAndWaitsForIt() throws Exception {
         URI url = server.mount(FIXTURE, Behaviour.NORMAL.throttled(40_000));
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY, watchdog)) {
             stream.seek(file.length - 100);
 
             assertThat(stream.readNBytes(100)).isEqualTo(Arrays.copyOfRange(file, file.length - 100, file.length));
@@ -86,7 +90,7 @@ class HttpSeekableStreamTest {
     @Test
     void closingWakesAReadWaitingForData() throws Exception {
         HttpSeekableStream stream = HttpSeekableStream.open(http, server.mount(FIXTURE,
-                Behaviour.NORMAL.throttled(2000)), POLICY);
+                Behaviour.NORMAL.throttled(2000)), POLICY, watchdog);
         stream.seek(file.length - 1);
         CompletableFuture<Integer> reader = CompletableFuture.supplyAsync(() -> {
             try {
@@ -107,7 +111,7 @@ class HttpSeekableStreamTest {
     void skipsShortDistancesWithoutANewRequest() throws Exception {
         URI url = server.mount(FIXTURE);
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY, watchdog)) {
             stream.seek(40_000);
 
             assertThat(stream.readNBytes(10)).isEqualTo(Arrays.copyOfRange(file, 40_000, 40_010));
@@ -119,7 +123,7 @@ class HttpSeekableStreamTest {
     void seeksOnAServerWithoutRangesByStartingOver() throws Exception {
         URI url = server.mount(FIXTURE, Behaviour.NORMAL.withoutRanges());
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY, watchdog)) {
             stream.skipFully(30_000);
             stream.seek(1000);
 
@@ -131,7 +135,7 @@ class HttpSeekableStreamTest {
     void resumesWhereTheConnectionDropped() throws Exception {
         URI url = server.mount(FIXTURE, Behaviour.NORMAL.droppingOnceAfter(10_000));
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY, watchdog)) {
             assertThat(stream.readAllBytes()).isEqualTo(file);
         }
         assertResumedOnceWithinTheFirst(url, 10_000);
@@ -141,7 +145,7 @@ class HttpSeekableStreamTest {
     void failsWhenTheServerCannotResume() throws Exception {
         URI url = server.mount(FIXTURE, Behaviour.NORMAL.dyingAfter(10_000));
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, url, POLICY, watchdog)) {
             assertThatThrownBy(stream::readAllBytes).isInstanceOf(IOException.class).hasMessageContaining("503");
         }
     }
@@ -151,7 +155,7 @@ class HttpSeekableStreamTest {
         URI real = server.mount(FIXTURE, Behaviour.NORMAL.droppingOnceAfter(10_000));
         URI redirect = server.redirectTo(real);
 
-        try (HttpSeekableStream stream = HttpSeekableStream.open(http, redirect, POLICY)) {
+        try (HttpSeekableStream stream = HttpSeekableStream.open(http, redirect, POLICY, watchdog)) {
             assertThat(stream.readAllBytes()).isEqualTo(file);
         }
         assertThat(server.requestsFor(redirect)).hasSize(1);
@@ -166,19 +170,19 @@ class HttpSeekableStreamTest {
         }
         URI start = url;
 
-        assertThatThrownBy(() -> HttpSeekableStream.open(http, start, POLICY)).hasMessageContaining("too many redirects");
+        assertThatThrownBy(() -> HttpSeekableStream.open(http, start, POLICY, watchdog)).hasMessageContaining("too many redirects");
     }
 
     @Test
     void failsOnAnHttpError() {
         URI missing = server.mount(FIXTURE).resolve("/nothing-here.m4a");
 
-        assertThatThrownBy(() -> HttpSeekableStream.open(http, missing, POLICY)).hasMessage("HTTP 404");
+        assertThatThrownBy(() -> HttpSeekableStream.open(http, missing, POLICY, watchdog)).hasMessage("HTTP 404");
     }
 
     @Test
     void refusesToReadAfterClose() throws Exception {
-        HttpSeekableStream stream = HttpSeekableStream.open(http, server.mount(FIXTURE), POLICY);
+        HttpSeekableStream stream = HttpSeekableStream.open(http, server.mount(FIXTURE), POLICY, watchdog);
         stream.close();
 
         assertThatThrownBy(stream::read).hasMessage("Stream closed");
