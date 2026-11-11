@@ -25,7 +25,7 @@
         <lavaplayer.version>2.2.7</lavaplayer.version>
         <!-- LavaPlayer's name for this build machine's platform; set by the natives-* profiles below -->
         <lavaplayer.natives>none</lavaplayer.natives>
-        <jacoco.version>0.8.15</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <archunit.version>1.5.1</archunit.version>
         <!-- minimum line coverage enforced by `mvn verify` -->
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
