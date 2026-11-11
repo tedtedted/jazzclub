@@ -8,6 +8,11 @@ Add a line under `Unreleased` in every pull request that changes something a use
 
 ## [Unreleased]
 
+### Fixed
+
+- The README's macOS notification script no longer fails silently on songs with a `"` in the title
+  or artist name. If you copied it, copy it again.
+
 ## [0.2.1] - 2026-10-06
 
 ### Fixed
