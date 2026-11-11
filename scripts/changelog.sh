@@ -3,8 +3,12 @@
 #
 #   changelog.sh check             the file has an Unreleased section, and every release heading
 #                                  is a SemVer version with a date and a link
-#   changelog.sh notes VERSION     prints VERSION's section, for the GitHub release. A pre-release
+#   changelog.sh notes [--rehearsal] VERSION
+#                                  prints VERSION's section, for the GitHub release. A pre-release
 #                                  (1.2.0-rc.1) without a section of its own prints Unreleased.
+#                                  --rehearsal, for a release workflow run by hand, prints a
+#                                  placeholder instead of failing when there are no notes, as
+#                                  between releases, when Unreleased is empty.
 #   changelog.sh release VERSION   turns Unreleased into VERSION's section, dated today
 set -euo pipefail
 
@@ -13,7 +17,7 @@ repo_url="https://github.com/tedtedted/jazzclub"
 semver='[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?'
 
 usage() {
-  echo "usage: $0 check | notes VERSION | release VERSION" >&2
+  echo "usage: $0 check | notes [--rehearsal] VERSION | release VERSION" >&2
   exit 64
 }
 
@@ -60,16 +64,23 @@ check() {
 }
 
 notes() {
-  local version="$1" body
+  local rehearsal="$1" version="$2" body="" problem=""
   [[ "$version" =~ ^$semver$ ]] || die "not a SemVer version: $version"
   if has_heading "$version"; then
     body="$(section "$version")"
   elif [[ "$version" == *-* ]]; then
     body="$(section Unreleased)"
   else
-    die "no '## [$version]' section; prepare the release with scripts/release.sh prepare $version"
+    problem="no '## [$version]' section; prepare the release with scripts/release.sh prepare $version"
   fi
-  [[ -n "$body" ]] || die "the section for $version is empty"
+  if [[ -z "$problem" && -z "$body" ]]; then
+    problem="the section for $version is empty"
+  fi
+  if [[ -n "$problem" ]]; then
+    [[ "$rehearsal" == true ]] || die "$problem"
+    echo "$changelog: $problem; a rehearsal carries on with placeholder notes" >&2
+    body="_Rehearsal of $version: CHANGELOG.md has no notes for it yet._"
+  fi
   printf '%s\n' "$body"
 }
 
@@ -98,7 +109,11 @@ release() {
 
 case "${1:-}" in
   check) [[ $# -eq 1 ]] || usage; check ;;
-  notes) [[ $# -eq 2 ]] || usage; notes "$2" ;;
+  notes)
+    if [[ $# -eq 3 && "$2" == --rehearsal ]]; then notes true "$3"
+    elif [[ $# -eq 2 ]]; then notes false "$2"
+    else usage
+    fi ;;
   release) [[ $# -eq 2 ]] || usage; release "$2" ;;
   *) usage ;;
 esac

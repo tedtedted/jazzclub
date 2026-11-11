@@ -90,6 +90,10 @@ inspect:
 gh workflow run release.yml --ref <branch> -f version=0.0.0-test
 ```
 
+A rehearsal never fails for want of release notes. When the changelog has none for the version, as
+between releases when `Unreleased` is empty, it uses placeholder notes and says so in the log. A
+pushed tag still fails without them.
+
 ### When a release goes wrong
 
 Never move or reuse a tag that has been pushed; someone may have downloaded what it built. Fix

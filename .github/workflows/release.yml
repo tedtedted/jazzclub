@@ -66,11 +66,14 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
-      # the release notes come from CHANGELOG.md; a missing section fails here, not after the builds
+      # The release notes come from CHANGELOG.md; a missing section fails a tag here, not after the
+      # builds. A run by hand is a rehearsal and carries on with placeholder notes, so it still works
+      # between releases, when Unreleased is empty.
       - name: The changelog has notes for this version
         run: |
           scripts/changelog.sh check
-          scripts/changelog.sh notes "${{ steps.version.outputs.version }}" > /dev/null
+          scripts/changelog.sh notes ${{ github.event_name == 'workflow_dispatch' && '--rehearsal' || '' }} \
+            "${{ steps.version.outputs.version }}" > /dev/null
 
   test:
     name: Tests and coverage
@@ -266,7 +269,7 @@ jobs:
               echo "A pre-release of what comes next; expect rough edges."
               echo
             fi
-            scripts/changelog.sh notes "$version"
+            scripts/changelog.sh notes ${{ github.event_name == 'workflow_dispatch' && '--rehearsal' || '' }} "$version"
             echo
             echo "---"
             echo
