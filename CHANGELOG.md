@@ -13,6 +13,11 @@ Add a line under `Unreleased` in every pull request that changes something a use
 - The README's macOS notification script no longer fails silently on songs with a `"` in the title
   or artist name. If you copied it, copy it again.
 
+### Security
+
+- Bundled copies of commons-io, jsoup, org.json and Rhino are updated to versions without known
+  vulnerabilities. jazzclub never ran the affected code, so this is a precaution.
+
 ## [0.2.1] - 2026-10-06
 
 ### Fixed

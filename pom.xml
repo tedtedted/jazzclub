@@ -39,6 +39,42 @@
         <LASTFM_API_SECRET/>
     </properties>
 
+    <!--
+      Patched versions of libraries LavaPlayer pulls in for its source managers (Dependabot alerts
+      #1, #2, #3, #18, #19). jazzclub never reaches that code (see the lavaplayer dependency below),
+      but pinning keeps vulnerable jars out of the build. Drop a pin once LavaPlayer ships the fix.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.22.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>1.24.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.json</groupId>
+                <artifactId>json</artifactId>
+                <version>20260814</version>
+            </dependency>
+            <!-- stay on 1.7.x: rhino-engine 1.7.14 expects it -->
+            <dependency>
+                <groupId>org.mozilla</groupId>
+                <artifactId>rhino</artifactId>
+                <version>1.7.14.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mozilla</groupId>
+                <artifactId>rhino-engine</artifactId>
+                <version>1.7.14.1</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Core starter only: no web server, keeps the native binary small -->
         <dependency>
