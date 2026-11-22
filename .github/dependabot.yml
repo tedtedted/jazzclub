@@ -1,18 +1,24 @@
 version: 2
+# Routine version updates are batched monthly: one grouped PR per ecosystem for
+# minor/patch bumps, while major bumps still arrive as their own PRs.
+# Security updates are separate (enabled in repo settings) and are opened as soon
+# as an advisory is published, regardless of this schedule.
 updates:
   - package-ecosystem: maven
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     groups:
-      test-dependencies:
-        dependency-type: development
+      maven-minor-and-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     groups:
-      actions:
+      actions-minor-and-patch:
         patterns: ['*']
+        update-types: [minor, patch]
