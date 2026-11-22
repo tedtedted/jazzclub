@@ -467,10 +467,13 @@ A notification on every new song, for macOS:
 while IFS='=' read -r key value; do
     case "$key" in title) title=$value ;; artist) artist=$value ;; esac
 done
-osascript -e "display notification \"$artist\" with title \"$title\""
+osascript -e 'on run argv' -e 'display notification (item 2 of argv) with title (item 1 of argv)' \
+    -e 'end run' "$title" "$artist"
 ```
 
-On Linux replace the last line with `notify-send "$title" "$artist"`. Remember `chmod +x`.
+Title and artist go in as arguments rather than being pasted into the AppleScript, so a song with a
+`"` in its name still gets its notification. On Linux replace the `osascript` command with
+`notify-send "$title" "$artist"`. Remember `chmod +x`.
 
 Two differences from pianobar, both deliberate: scripts run in the background, one at a time and in
 order, so a slow scrobbler never delays the music or a key press; and their output is discarded
