@@ -10,6 +10,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.nio.file.Files;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +49,7 @@ class DecoderConformanceTest {
      */
     private static final double UNTRIMMED_PRIMING = 0.25;
 
+    private static final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor();
     private static AudioFixtureServer server;
     private static Boolean ffmpegInstalled;
 
@@ -62,6 +65,7 @@ class DecoderConformanceTest {
     @AfterAll
     static void stop() {
         server.close();
+        watchdog.shutdownNow();
     }
 
     @ParameterizedTest
@@ -188,7 +192,7 @@ class DecoderConformanceTest {
 
     private static Decoder.Factory decoders(DecoderType type) {
         return switch (type) {
-            case LAVAPLAYER -> LavaplayerDecoder.factory(HttpClient.newHttpClient(), FORMAT);
+            case LAVAPLAYER -> LavaplayerDecoder.factory(HttpClient.newHttpClient(), FORMAT, watchdog);
             case FFMPEG -> {
                 requireFfmpeg();
                 yield FfmpegDecoder.factory("ffmpeg", null, FORMAT);

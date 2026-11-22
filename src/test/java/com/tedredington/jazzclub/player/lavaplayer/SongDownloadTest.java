@@ -7,6 +7,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,6 +37,7 @@ class SongDownloadTest {
     private static final byte[] FILE = new byte[98_304];
     private static final Duration EXIT = Duration.ofSeconds(2);
 
+    private static final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor();
     private static AudioFixtureServer server;
     private final HttpClient http = HttpClient.newHttpClient();
     private final List<SongDownload> downloads = new ArrayList<>();
@@ -48,6 +51,7 @@ class SongDownloadTest {
     @AfterAll
     static void stop() {
         server.close();
+        watchdog.shutdownNow();
     }
 
     @AfterEach
@@ -327,7 +331,7 @@ class SongDownloadTest {
     }
 
     private SongDownload start(URI url, DownloadPolicy policy) {
-        SongDownload download = new SongDownload(http, url, policy);
+        SongDownload download = new SongDownload(http, url, policy, watchdog);
         downloads.add(download);
         download.start();
         return download;

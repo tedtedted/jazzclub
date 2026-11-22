@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.nio.file.Files;
 import java.time.Duration;
 
@@ -28,8 +30,9 @@ class LavaplayerDecoderTest {
 
     private static final PcmFormat FORMAT = PcmFormat.of(0);
 
+    private static final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor();
     private static AudioFixtureServer server;
-    private final Decoder.Factory decoders = LavaplayerDecoder.factory(HttpClient.newHttpClient(), FORMAT);
+    private final Decoder.Factory decoders = LavaplayerDecoder.factory(HttpClient.newHttpClient(), FORMAT, watchdog);
 
     private record Result(PcmAnalysis pcm, String failure) {
     }
@@ -43,6 +46,7 @@ class LavaplayerDecoderTest {
     @AfterAll
     static void stop() {
         server.close();
+        watchdog.shutdownNow();
     }
 
     @Test
@@ -75,7 +79,7 @@ class LavaplayerDecoderTest {
     void decodesTheSameAudioThroughADropOnEveryResponse() throws Exception {
         DownloadPolicy smallSteps = new DownloadPolicy(Duration.ofSeconds(5), Duration.ofSeconds(5), 1024 * 1024,
                 50, 3, 4096, Duration.ofMillis(10), Duration.ofMillis(40));
-        Decoder.Factory decoders = LavaplayerDecoder.factory(HttpClient.newHttpClient(), FORMAT, smallSteps);
+        Decoder.Factory decoders = LavaplayerDecoder.factory(HttpClient.newHttpClient(), FORMAT, smallSteps, watchdog);
         URI url = server.mount("he-noise.m4a", Behaviour.NORMAL.droppingEvery(8192));
 
         byte[] clean = pcm(decoders, server.mount("he-noise.m4a"));
@@ -120,7 +124,7 @@ class LavaplayerDecoderTest {
 
     @Test
     void refusesToResampleAndSaysWhatToDoInstead() throws Exception {
-        Decoder.Factory at48k = LavaplayerDecoder.factory(HttpClient.newHttpClient(), PcmFormat.of(48_000));
+        Decoder.Factory at48k = LavaplayerDecoder.factory(HttpClient.newHttpClient(), PcmFormat.of(48_000), watchdog);
 
         Result result = decode(at48k, server.mount("lc-1k.m4a"));
 

@@ -8,6 +8,7 @@ import java.io.PipedOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.concurrent.ScheduledExecutorService;
 
 import com.sedmelluq.discord.lavaplayer.container.mpeg.MpegFileLoader;
 import com.sedmelluq.discord.lavaplayer.container.mpeg.MpegTrackInfo;
@@ -34,39 +35,41 @@ public final class LavaplayerDecoder implements Decoder {
     private volatile String failure;
     private volatile boolean closed;
 
-    private LavaplayerDecoder(HttpClient http, URI audioUrl, PcmFormat format, DownloadPolicy policy)
-            throws IOException {
+    private LavaplayerDecoder(HttpClient http, URI audioUrl, PcmFormat format, DownloadPolicy policy,
+                              ScheduledExecutorService watchdog) throws IOException {
         pcm = new PipedInputStream(PIPE_BYTES);
         PipedOutputStream out = new PipedOutputStream(pcm);
         worker = Thread.ofPlatform().daemon().name("decoder")
-                .unstarted(() -> decode(http, audioUrl, format, policy, out));
+                .unstarted(() -> decode(http, audioUrl, format, policy, watchdog, out));
     }
 
     /** @param http jazzclub's client for audio, carrying the stream proxy */
-    public static Decoder.Factory factory(HttpClient http, PcmFormat format) {
-        return factory(http, format, DownloadPolicy.withTimeout(Duration.ofSeconds(30)));
+    public static Decoder.Factory factory(HttpClient http, PcmFormat format, ScheduledExecutorService watchdog) {
+        return factory(http, format, DownloadPolicy.withTimeout(Duration.ofSeconds(30)), watchdog);
     }
 
     /**
      * @param http   jazzclub's client for audio, carrying the stream proxy
      * @param policy the bounds of each song's download
+     * @param watchdog shared scheduler owned by the caller, kept alive until decoding stops
      */
-    public static Decoder.Factory factory(HttpClient http, PcmFormat format, DownloadPolicy policy) {
+    public static Decoder.Factory factory(HttpClient http, PcmFormat format, DownloadPolicy policy,
+                                          ScheduledExecutorService watchdog) {
         return audioUrl -> {
             String scheme = audioUrl.getScheme();
             if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
                 throw new IllegalArgumentException("Invalid song url.");
             }
-            LavaplayerDecoder decoder = new LavaplayerDecoder(http, audioUrl, format, policy);
+            LavaplayerDecoder decoder = new LavaplayerDecoder(http, audioUrl, format, policy, watchdog);
             decoder.worker.start();
             return decoder;
         };
     }
 
     private void decode(HttpClient http, URI audioUrl, PcmFormat format, DownloadPolicy policy,
-                        PipedOutputStream out) {
+                        ScheduledExecutorService watchdog, PipedOutputStream out) {
         AacPcmConsumer consumer = null;
-        SongDownload song = new SongDownload(http, audioUrl, policy);
+        SongDownload song = new SongDownload(http, audioUrl, policy, watchdog);
         // published before anything can block, so that close() reaches a download still connecting
         download = song;
         try (out) {

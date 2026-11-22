@@ -6,6 +6,7 @@ import com.tedredington.jazzclub.app.PlayerLoop;
 import com.tedredington.jazzclub.remote.ControlFifo;
 import com.tedredington.jazzclub.terminal.TerminalSession;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.ExitCodeGenerator;
@@ -24,11 +25,14 @@ class JazzclubRunner implements ApplicationRunner, ExitCodeGenerator {
     private final ObjectProvider<TerminalSession> terminalSession;
     private final ObjectProvider<ScheduledExecutorService> ticker;
     private final ObjectProvider<ControlFifo> controlFifo;
+    private final PlayerLifecycle lifecycle;
     private int exitCode;
 
     JazzclubRunner(JazzclubProperties properties, ObjectProvider<PlayerLoop> playerLoop,
                    ObjectProvider<TerminalSession> terminalSession,
-                   ObjectProvider<ScheduledExecutorService> ticker, ObjectProvider<ControlFifo> controlFifo) {
+                   @Qualifier("ticker") ObjectProvider<ScheduledExecutorService> ticker,
+                   ObjectProvider<ControlFifo> controlFifo, PlayerLifecycle lifecycle) {
+        this.lifecycle = lifecycle;
         this.controlFifo = controlFifo;
         this.properties = properties;
         this.playerLoop = playerLoop;
@@ -41,10 +45,12 @@ class JazzclubRunner implements ApplicationRunner, ExitCodeGenerator {
         if (!properties.interactive()) {
             return;
         }
-        terminalSession.getObject().open();
-        controlFifo.getObject().open();
-        ticker.getObject();
-        exitCode = playerLoop.getObject().run();
+        lifecycle.run(() -> {
+            terminalSession.getObject().open();
+            controlFifo.getObject().open();
+            ticker.getObject();
+            exitCode = playerLoop.getObject().run();
+        });
     }
 
     @Override

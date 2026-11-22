@@ -176,6 +176,12 @@ Options:
 
 Note that `-v` is *verbose*; the version is a capital `-V`.
 
+Explicit config and verbosity options take precedence over environment variables and Java system
+properties. Decoder setup waits until the first song starts, so signing in does not load audio libraries.
+
+On normal quit or `SIGTERM`, jazzclub stops playback and delivers the final song event before closing
+Last.fm and event-script workers. Background requests have a bounded time to finish.
+
 Exit status: `0` after a normal quit, `1` if jazzclub could not sign in or has no credentials,
 `2` for a mistake on the command line.
 

@@ -155,7 +155,9 @@ jobs:
         run: scripts/smoke-test.sh target/jazzclub "${{ needs.version.outputs.version }}"
 
       - name: Test native audio
-        run: python3 scripts/smoke-test-audio.py target/jazzclub
+        run: |
+          python3 scripts/smoke-test-audio.py target/jazzclub
+          python3 scripts/smoke-test-audio.py target/jazzclub --signal
 
       - name: Build Linux packages
         if: matrix.os == 'linux'

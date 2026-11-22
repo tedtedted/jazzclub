@@ -22,9 +22,7 @@ public class JazzclubApplication {
         }
 
         SpringApplication application = new SpringApplication(JazzclubApplication.class);
-        application.setDefaultProperties(options.get().toProperties());
-        // argv was consumed above; Spring must not reinterpret it as properties
-        application.setAddCommandLineProperties(false);
-        System.exit(SpringApplication.exit(application.run()));
+        // Picocli consumed argv; only the translated properties go through Boot's CLI handling.
+        System.exit(SpringApplication.exit(application.run(options.get().toSpringArguments())));
     }
 }

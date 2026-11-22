@@ -15,7 +15,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -53,10 +52,7 @@ final class SongDownload implements Closeable {
     private static final int MAX_REDIRECTS = 5;
     private static final Pattern CONTENT_RANGE = Pattern.compile("bytes (\\d+)-(\\d+)/(\\d+)");
 
-    /** Cuts off response bodies that deliver nothing; shared, as it does almost nothing. */
-    private static final ScheduledExecutorService WATCHDOG = Executors.newSingleThreadScheduledExecutor(
-            Thread.ofPlatform().name("song-download-watchdog").daemon(true).factory());
-
+    private final ScheduledExecutorService watchdog;
     private final HttpClient http;
     private final DownloadPolicy policy;
     private final Thread worker;
@@ -80,7 +76,8 @@ final class SongDownload implements Closeable {
     private volatile long lastDataNanos;
     private volatile boolean stalled;
 
-    SongDownload(HttpClient http, URI uri, DownloadPolicy policy) {
+    SongDownload(HttpClient http, URI uri, DownloadPolicy policy, ScheduledExecutorService watchdog) {
+        this.watchdog = watchdog;
         this.http = http;
         this.uri = uri;
         this.policy = policy;
@@ -341,7 +338,7 @@ final class SongDownload implements Closeable {
         lastDataNanos = System.nanoTime();
         stalled = false;
         long period = Math.max(10, policy.stallTimeout().toMillis() / 4);
-        ScheduledFuture<?> watchdog = WATCHDOG.scheduleAtFixedRate(() -> cutIfStalled(body), period, period,
+        ScheduledFuture<?> check = watchdog.scheduleAtFixedRate(() -> cutIfStalled(body), period, period,
                 TimeUnit.MILLISECONDS);
         try {
             while (true) {
@@ -372,7 +369,7 @@ final class SongDownload implements Closeable {
                 }
             }
         } finally {
-            watchdog.cancel(false);
+            check.cancel(false);
         }
     }
 

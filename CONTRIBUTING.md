@@ -25,12 +25,14 @@ To check the native executable, including playback without a sound card:
 ./mvnw -Pnative native:compile
 scripts/smoke-test.sh target/jazzclub
 python3 scripts/smoke-test-audio.py target/jazzclub
+python3 scripts/smoke-test-audio.py target/jazzclub --signal
 ```
 
 The audio smoke test needs Python 3 and openssl. It uses temporary local HTTP/HTTPS servers,
 dummy account responses, synthetic AAC audio and an audio FIFO. It checks decoded PCM duration
 and signal level and refuses an ffmpeg fallback. While developing the test itself, use
 `python3 scripts/smoke-test-audio.py --jar target/jazzclub.jar` after `./mvnw package`.
+The `--signal` variant sends `SIGTERM` during playback and checks final event delivery and saved state.
 
 Linux package installation checks use Docker; run `scripts/test-linux-packages.sh VERSION
 DEB_ARCH ARCH_ARCH dist` after building the native Linux executable and packages. Debian 12 and

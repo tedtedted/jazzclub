@@ -64,24 +64,42 @@ public final class PlayerLoop {
 
     /** @return the process exit code */
     public int run() {
-        console.append("Welcome to jazzclub (" + version + ")! "
-                + bindings.keyFor(ActionId.HELP).map(k -> "Press " + k + " for a list of commands.").orElse("")
-                + "\n");
-        if (!signIn()) {
-            return EXIT_FAILURE;
-        }
-        initialStation().ifPresent(radio::tune);
-
+        boolean signedIn = false;
         try {
+            console.append("Welcome to jazzclub (" + version + ")! "
+                    + bindings.keyFor(ActionId.HELP).map(k -> "Press " + k + " for a list of commands.").orElse("")
+                    + "\n");
+            signedIn = signIn();
+            if (!signedIn) {
+                return EXIT_FAILURE;
+            }
+            if (!Thread.currentThread().isInterrupted()) {
+                initialStation().ifPresent(radio::tune);
+            }
             while (!state.quitRequested()) {
                 handle(events.take());
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
-            sessionStore.save(player.volume(), state.station());
-            radio.shutdown();
-            console.append("\n");
+            // File channels abort on an interrupted thread; persist the state before restoring it.
+            boolean interrupted = Thread.interrupted();
+            try {
+                try {
+                    if (signedIn) {
+                        sessionStore.save(player.volume(), state.station());
+                    }
+                } finally {
+                    radio.shutdown();
+                }
+                if (signedIn) {
+                    console.append("\n");
+                }
+            } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
         return EXIT_OK;
     }
